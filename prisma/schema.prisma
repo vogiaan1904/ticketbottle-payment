@@ -1,0 +1,44 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Payment {
+  id                    String        @id @default(uuid())
+  orderCode             String        @unique
+  amountCents           Int
+  currency              Currency
+  provider              String
+  providerTransactionId String // ZaloPay's app_trans_id, Stripe's payment_intent_id
+  idempotencyKey        String        @unique
+  redirectUrl           String
+  status                PaymentStatus
+  metadata              Json?
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+  completedAt           DateTime?
+  failedAt              DateTime?
+
+  @@index([orderCode])
+  @@map("payments")
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+enum Currency {
+  VND
+}
