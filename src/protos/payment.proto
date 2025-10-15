@@ -26,7 +26,7 @@ enum PaymentStatus {
 
 message CreatePaymentIntentRequest {
     string order_code = 1;
-    int32 amount_cents = 2;
+    int64 amount_cents = 2;
     string currency = 3;
     PaymentProvider provider = 4;
     string idempotency_key = 5;

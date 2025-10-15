@@ -7,9 +7,10 @@ import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 import { GlobalGrpcExceptionFilter } from './common/filters/global-grpc-exception.filter';
 import { TransformInterceptor } from './common/interceptors/transfrom.interceptor';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
+import { OutboxModule } from './modules/outbox/outbox.module';
 
 @Module({
-  imports: [SharedModule, PaymentModule],
+  imports: [SharedModule, PaymentModule, OutboxModule],
   controllers: [AppController],
   providers: [
     AppService,
