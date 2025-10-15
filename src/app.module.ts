@@ -8,9 +8,10 @@ import { GlobalGrpcExceptionFilter } from './common/filters/global-grpc-exceptio
 import { TransformInterceptor } from './common/interceptors/transfrom.interceptor';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 import { OutboxModule } from './modules/outbox/outbox.module';
+import { KafkaModule } from './infra/messaging/kafka/kafka.module';
 
 @Module({
-  imports: [SharedModule, PaymentModule, OutboxModule],
+  imports: [SharedModule, PaymentModule, OutboxModule, KafkaModule],
   controllers: [AppController],
   providers: [
     AppService,

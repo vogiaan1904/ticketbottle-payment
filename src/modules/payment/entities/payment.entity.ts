@@ -15,4 +15,5 @@ export class PaymentEntity implements Payment {
   updatedAt: Date;
   completedAt: Date | null;
   failedAt: Date | null;
+  cancelledAt: Date | null;
 }

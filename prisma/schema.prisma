@@ -28,6 +28,7 @@ model Payment {
   updatedAt             DateTime      @updatedAt
   completedAt           DateTime?
   failedAt              DateTime?
+  cancelledAt           DateTime?
 
   @@index([orderCode])
   @@map("payments")
@@ -36,6 +37,7 @@ model Payment {
 enum PaymentStatus {
   PENDING
   COMPLETED
+  CANCELLED
   FAILED
 }
 

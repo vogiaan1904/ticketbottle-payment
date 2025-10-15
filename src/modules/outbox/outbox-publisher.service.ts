@@ -22,7 +22,6 @@ export class OutboxPublisherService implements OnModuleInit, OnModuleDestroy {
 
   async onModuleInit() {
     this.logger.log('Outbox Publisher Service initialized');
-    // Start processing immediately on startup
     this.processOutboxEvents();
   }
 
@@ -30,7 +29,6 @@ export class OutboxPublisherService implements OnModuleInit, OnModuleDestroy {
     this.logger.log('Outbox Publisher Service shutting down...');
     this.isShuttingDown = true;
 
-    // Wait for current processing to complete
     while (this.isProcessing) {
       await new Promise((resolve) => setTimeout(resolve, 100));
     }
@@ -62,10 +60,7 @@ export class OutboxPublisherService implements OnModuleInit, OnModuleDestroy {
 
       this.logger.log(`Processing ${events.length} outbox events`);
 
-      // Process events in parallel with concurrency control
       const results = await Promise.allSettled(events.map((event) => this.publishEvent(event)));
-
-      // Log summary
       const succeeded = results.filter((r) => r.status === 'fulfilled').length;
       const failed = results.filter((r) => r.status === 'rejected').length;
 
@@ -94,20 +89,13 @@ export class OutboxPublisherService implements OnModuleInit, OnModuleDestroy {
         return;
       }
 
-      // Publish to Kafka
-      await this.kafkaService.sendMessage(
-        topic,
-        event.payload,
-        event.aggregateId, // Use aggregateId as message key for ordering
-        {
-          eventType: event.eventType,
-          eventVersion: '1.0',
-          source: 'payment-service',
-          correlationId: event.aggregateId,
-        },
-      );
+      await this.kafkaService.sendMessage(topic, event.payload, event.aggregateId, {
+        eventType: event.eventType,
+        eventVersion: '1.0',
+        source: 'payment-service',
+        correlationId: event.aggregateId,
+      });
 
-      // Mark as published
       await this.outboxService.markAsPublished(event.id);
 
       this.logger.debug(
@@ -119,7 +107,6 @@ export class OutboxPublisherService implements OnModuleInit, OnModuleDestroy {
         error,
       );
 
-      // Increment retry count
       await this.outboxService.incrementRetryCount(event.id, error.message || 'Unknown error');
 
       throw error;
@@ -131,11 +118,9 @@ export class OutboxPublisherService implements OnModuleInit, OnModuleDestroy {
    */
   private getTopicForEventType(eventType: string): string | null {
     const mapping: Record<string, string> = {
-      PaymentCreated: KAFKA_TOPICS.PAYMENT_CREATED,
       PaymentCompleted: KAFKA_TOPICS.PAYMENT_COMPLETED,
       PaymentFailed: KAFKA_TOPICS.PAYMENT_FAILED,
       PaymentCancelled: KAFKA_TOPICS.PAYMENT_CANCELLED,
-      PaymentRefunded: KAFKA_TOPICS.PAYMENT_REFUNDED,
       // Add more mappings as needed
     };
 

@@ -1,15 +1,23 @@
-import { Module, Global } from '@nestjs/common';
-import { ClientsModule } from '@nestjs/microservices';
+import { AppConfigService } from '@/shared/services/config.service';
+import { Global, Module } from '@nestjs/common';
+import { ClientsModule, KafkaOptions, Transport } from '@nestjs/microservices';
 import { KafkaService } from './kafka.service';
-import { kafkaConfig } from './kafka.config';
 
-@Global() // Makes this module available globally without imports
+@Global()
 @Module({
   imports: [
-    ClientsModule.register([
+    ClientsModule.registerAsync([
       {
         name: 'KAFKA_SERVICE',
-        ...kafkaConfig(),
+        useFactory: (configService: AppConfigService): KafkaOptions => {
+          return {
+            transport: Transport.KAFKA,
+            options: {
+              ...configService.kafkaConfig,
+            },
+          };
+        },
+        inject: [AppConfigService],
       },
     ]),
   ],

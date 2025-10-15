@@ -3,6 +3,7 @@ import * as winston from 'winston';
 import * as DailyRotateFile from 'winston-daily-rotate-file';
 import * as dotenv from 'dotenv';
 import { ISwaggerConfig } from '@/shared/interfaces/swagger-config.interface';
+import { Partitioners } from 'kafkajs';
 
 @Injectable()
 export class AppConfigService {
@@ -40,6 +41,52 @@ export class AppConfigService {
       synchronize: this.get('DATABASE_SYNCHRONIZE'),
       logging: this.get('DATABASE_LOGGING'),
       ssl: this.get('DATABASE_SSL'),
+    };
+  }
+
+  get kafkaConfig() {
+    return {
+      client: {
+        clientId: this.get('KAFKA_CLIENT_ID') || 'payment-service',
+        brokers: (this.get('KAFKA_BROKERS') || 'localhost:9092').split(','),
+        connectionTimeout: 3000,
+        requestTimeout: 25000,
+        retry: {
+          initialRetryTime: 100,
+          retries: 8,
+          maxRetryTime: 30000,
+          multiplier: 2,
+          factor: 0.2,
+        },
+        // SSL/SASL configuration for production
+        ...(this.get('KAFKA_SSL') === 'true' && {
+          ssl: true,
+          sasl: {
+            mechanism: 'plain' as const,
+            username: this.get('KAFKA_USERNAME') || '',
+            password: this.get('KAFKA_PASSWORD') || '',
+          },
+        }),
+      },
+      producer: {
+        createPartitioner: Partitioners.LegacyPartitioner,
+        allowAutoTopicCreation: false,
+        transactionTimeout: 30000,
+        idempotent: true,
+        maxInFlightRequests: 5,
+      },
+      consumer: {
+        groupId: this.get('KAFKA_CONSUMER_GROUP_ID') || 'payment-consumer-group',
+        sessionTimeout: 30000,
+        heartbeatInterval: 3000,
+        maxBytesPerPartition: 1048576, // 1MB
+        retry: {
+          initialRetryTime: 100,
+          retries: 8,
+          maxRetryTime: 30000,
+          multiplier: 2,
+        },
+      },
     };
   }
 
@@ -97,10 +144,7 @@ export class AppConfigService {
           zippedArchive: true,
           maxSize: '20m',
           maxFiles: '14d',
-          format: winston.format.combine(
-            winston.format.timestamp(),
-            winston.format.json(),
-          ),
+          format: winston.format.combine(winston.format.timestamp(), winston.format.json()),
         }),
         new DailyRotateFile({
           level: 'error',
@@ -109,10 +153,7 @@ export class AppConfigService {
           zippedArchive: false,
           maxSize: '20m',
           maxFiles: '30d',
-          format: winston.format.combine(
-            winston.format.timestamp(),
-            winston.format.json(),
-          ),
+          format: winston.format.combine(winston.format.timestamp(), winston.format.json()),
         }),
         new winston.transports.Console({
           level: 'debug',
@@ -122,17 +163,12 @@ export class AppConfigService {
             winston.format.timestamp({
               format: 'DD-MM-YYYY HH:mm:ss',
             }),
-            winston.format.printf(
-              ({ level, message, timestamp, context, trace }) => {
-                const ctx = context ? ` [${context}]` : '';
-                const msgStr =
-                  typeof message === 'string'
-                    ? message
-                    : JSON.stringify(message);
-                const stackStr = trace ? `\n${trace}` : '';
-                return `${timestamp} ${level}:${ctx} ${msgStr}${stackStr}`;
-              },
-            ),
+            winston.format.printf(({ level, message, timestamp, context, trace }) => {
+              const ctx = context ? ` [${context}]` : '';
+              const msgStr = typeof message === 'string' ? message : JSON.stringify(message);
+              const stackStr = trace ? `\n${trace}` : '';
+              return `${timestamp} ${level}:${ctx} ${msgStr}${stackStr}`;
+            }),
           ),
         }),
       ],

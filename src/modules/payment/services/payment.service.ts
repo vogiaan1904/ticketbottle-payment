@@ -8,17 +8,15 @@ import { RpcBusinessException } from '@/common/exceptions/rpc-business.exception
 import { ErrorCodeEnum } from '@/shared/constants/error-code.constant';
 import { LoggerService } from '@/shared/services/logger.service';
 import { PaymentStatus } from '@prisma/client';
-import { PaymentOutboxService } from '../payment.outbox';
 import { PrismaService } from '@/infra/database/prisma/prisma.service';
-import { PaymentEventService } from './event.service';
+import { OutboxService } from '@/modules/outbox/outbox.service';
 
 @Injectable()
 export class PaymentService {
   constructor(
     private readonly paymentGatewayFactory: PaymentGatewayFactory,
     private readonly repo: PaymentRepository,
-    private readonly outboxService: PaymentOutboxService,
-    private readonly eventService: PaymentEventService,
+    private readonly outboxService: OutboxService,
     private readonly prisma: PrismaService,
     private readonly logger: LoggerService,
   ) {
@@ -38,45 +36,75 @@ export class PaymentService {
       });
 
       await this.outboxService.savePaymentCompletedEvent(payment, tx);
-      return payment;
-    });
 
-    await this.eventService.publishPaymentCompleted({
-      paymentId: payment.id,
-      orderCode: payment.orderCode,
-      amountCents: payment.amountCents,
-      currency: payment.currency,
-      provider: payment.provider,
-      transactionId: payment.providerTransactionId,
-      completedAt: payment.completedAt || now,
+      return payment;
     });
 
     this.logger.info(`Payment completed for order: ${orderCode}`);
   }
 
-  private async handleFailedPayment(orderCode: string, reason?: string): Promise<void> {
-    const now = new Date();
-    const payment = await this.prisma.$transaction(async (tx) => {
-      const payment = await tx.payment.update({
-        where: { orderCode },
-        data: { status: PaymentStatus.FAILED, failedAt: now },
+  private async handleFailedPayment(
+    orderCode: string,
+    reason?: string,
+    errorCode?: string,
+  ): Promise<void> {
+    try {
+      const now = new Date();
+
+      const payment = await this.prisma.$transaction(async (tx) => {
+        const payment = await tx.payment.update({
+          where: { orderCode },
+          data: {
+            status: PaymentStatus.FAILED,
+            failedAt: now,
+          },
+        });
+
+        await this.outboxService.savePaymentFailedEvent(payment, errorCode, tx);
+
+        return payment;
       });
 
-      await this.outboxService.savePaymentFailedEvent(payment, tx);
-      return payment;
-    });
-
-    await this.eventService.publishPaymentFailed({
-      paymentId: payment.id,
-      orderCode: payment.orderCode,
-      amountCents: payment.amountCents,
-      currency: payment.currency,
-      provider: payment.provider,
-      transactionId: payment.providerTransactionId,
-      failedAt: payment.failedAt || now,
-    });
-
+      this.logger.log(`Payment failed for order: ${orderCode}`);
+    } catch (error) {
+      this.logger.error(`Failed to handle failed payment for order: ${orderCode}`, error);
+      throw error;
+    }
     this.logger.info(`Payment failed for order: ${orderCode}`);
+  }
+
+  async cancelPayment(orderCode: string): Promise<void> {
+    try {
+      const now = new Date();
+      await this.prisma.$transaction(async (tx) => {
+        const payment = await tx.payment.update({
+          where: { orderCode },
+          data: {
+            status: PaymentStatus.CANCELLED,
+            cancelledAt: now,
+          },
+        });
+
+        await this.outboxService.saveEvent(
+          payment.id,
+          'Payment',
+          'PaymentCancelled',
+          {
+            paymentId: payment.id,
+            orderCode: payment.orderCode,
+            cancelledAt: now.toISOString(),
+          },
+          tx,
+        );
+
+        return payment;
+      });
+
+      this.logger.log(`Payment cancelled for order: ${orderCode}`);
+    } catch (error) {
+      this.logger.error(`Failed to cancel payment for order: ${orderCode}`, error);
+      throw error;
+    }
   }
 
   async createPaymentIntent(dto: CreatePaymentIntentDto): Promise<string> {

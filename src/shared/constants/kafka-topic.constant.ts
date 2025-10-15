@@ -1,6 +1,7 @@
 export const KAFKA_TOPICS = {
   PAYMENT_COMPLETED: 'payment.completed',
   PAYMENT_FAILED: 'payment.failed',
+  PAYMENT_CANCELLED: 'payment.cancelled',
 
   NOTIFICATION_SEND: 'notification.send',
 

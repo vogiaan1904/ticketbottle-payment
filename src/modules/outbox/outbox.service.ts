@@ -72,7 +72,6 @@ export class OutboxService {
    */
   async savePaymentFailedEvent(
     payment: any,
-    reason: string,
     errorCode?: string,
     tx?: Prisma.TransactionClient,
   ): Promise<Outbox> {
@@ -86,7 +85,6 @@ export class OutboxService {
         amountCents: payment.amountCents,
         currency: payment.currency,
         provider: payment.provider,
-        reason,
         errorCode,
         failedAt: new Date().toISOString(),
       },

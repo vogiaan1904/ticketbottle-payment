@@ -7,9 +7,10 @@ import { ZalopayGateWay } from './gateways/zalopay/zalopay.gateway';
 import { PrismaModule } from '@/infra/database/prisma/prisma.module';
 import { HttpModule } from '@nestjs/axios';
 import { GrpcPaymentController } from './controllers/grpc/payment.controller';
+import { OutboxModule } from '../outbox/outbox.module';
 
 @Module({
-  imports: [PrismaModule, HttpModule],
+  imports: [PrismaModule, HttpModule, OutboxModule],
   controllers: [PaymentController, GrpcPaymentController],
   providers: [PaymentService, PaymentGatewayFactory, PaymentRepository, ZalopayGateWay],
 })
