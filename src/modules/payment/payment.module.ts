@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { PaymentService } from './services/payment.service';
+import { PaymentService } from './payment.service';
 import { PaymentController } from './controllers/http/payment.controller';
 import { PaymentGatewayFactory } from './gateways/gateway.factory';
 import { PaymentRepository } from './repository/payment.repository';

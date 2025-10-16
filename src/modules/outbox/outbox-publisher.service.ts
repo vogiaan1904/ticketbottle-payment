@@ -1,8 +1,9 @@
-import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
-import { Cron, CronExpression } from '@nestjs/schedule';
-import { OutboxService } from './outbox.service';
-import { KafkaService } from '../../infra/messaging/kafka/kafka.service';
 import { KAFKA_TOPICS } from '@/shared/constants/kafka-topic.constant';
+import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
+import { KafkaService } from '../../infra/messaging/kafka/kafka.service';
+import { EventType } from './enums/event-type.enum';
+import { OutboxService } from './outbox.service';
 
 @Injectable()
 export class OutboxPublisherService implements OnModuleInit, OnModuleDestroy {
@@ -116,12 +117,10 @@ export class OutboxPublisherService implements OnModuleInit, OnModuleDestroy {
   /**
    * Map event types to Kafka topics
    */
-  private getTopicForEventType(eventType: string): string | null {
-    const mapping: Record<string, string> = {
-      PaymentCompleted: KAFKA_TOPICS.PAYMENT_COMPLETED,
-      PaymentFailed: KAFKA_TOPICS.PAYMENT_FAILED,
-      PaymentCancelled: KAFKA_TOPICS.PAYMENT_CANCELLED,
-      // Add more mappings as needed
+  private getTopicForEventType(eventType: EventType): string | null {
+    const mapping: Record<EventType, string> = {
+      [EventType.PAYMENT_COMPLETED]: KAFKA_TOPICS.PAYMENT_COMPLETED,
+      [EventType.PAYMENT_FAILED]: KAFKA_TOPICS.PAYMENT_FAILED,
     };
 
     return mapping[eventType] || null;

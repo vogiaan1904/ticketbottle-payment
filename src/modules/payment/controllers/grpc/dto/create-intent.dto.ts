@@ -3,6 +3,7 @@ import { CreatePaymentIntentRequest, PaymentProvider } from '@/protogen/payment.
 import { IsEnum, IsNotEmpty, IsNumber, IsPositive, IsString, IsUrl } from 'class-validator';
 import { CurrencyMapper } from '../mappers/currency.mapper';
 import { PaymentProviderMapper } from '../mappers/provider.mapper';
+import { Type } from 'class-transformer';
 
 export class CreatePaymentIntentDto implements CreatePaymentIntentRequest {
   toServiceDto(): ServiceCreatePaymentIntentDto {
@@ -24,6 +25,7 @@ export class CreatePaymentIntentDto implements CreatePaymentIntentRequest {
 
   @IsNotEmpty()
   @IsNumber()
+  @Type(() => Number)
   amountCents: number;
 
   @IsNotEmpty()
@@ -32,6 +34,7 @@ export class CreatePaymentIntentDto implements CreatePaymentIntentRequest {
 
   @IsNotEmpty()
   @IsEnum(PaymentProvider)
+  @Type(() => Number)
   provider: PaymentProvider;
 
   @IsNotEmpty()
@@ -45,5 +48,6 @@ export class CreatePaymentIntentDto implements CreatePaymentIntentRequest {
   @IsNotEmpty()
   @IsNumber()
   @IsPositive()
+  @Type(() => Number)
   timeoutSeconds: number;
 }

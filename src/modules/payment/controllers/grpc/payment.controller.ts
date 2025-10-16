@@ -1,5 +1,5 @@
 import { Controller } from '@nestjs/common';
-import { PaymentService } from '../../services/payment.service';
+import { PaymentService } from '../../payment.service';
 import { LoggerService } from '@/shared/services/logger.service';
 import { CreatePaymentIntentResponse, PAYMENT_SERVICE_NAME } from '@/protogen/payment.pb';
 import { CreatePaymentIntentDto } from './dto/create-intent.dto';

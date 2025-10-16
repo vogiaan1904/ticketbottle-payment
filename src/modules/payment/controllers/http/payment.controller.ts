@@ -1,5 +1,5 @@
 import { Controller, Post, Req } from '@nestjs/common';
-import { PaymentService } from '../../services/payment.service';
+import { PaymentService } from '../../payment.service';
 import { Request } from 'express';
 import { PaymentProvider } from '../../enums/provider.enum';
 

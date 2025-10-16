@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { CreatePaymentIntentDto } from '../dto';
-import { PaymentProvider } from '../enums/provider.enum';
-import { PaymentGatewayFactory } from '../gateways/gateway.factory';
-import { PaymentRepository } from '../repository/payment.repository';
-import { PaymentEntity } from '../entities/payment.entity';
+import { CreatePaymentIntentDto } from './dto';
+import { PaymentProvider } from './enums/provider.enum';
+import { PaymentGatewayFactory } from './gateways/gateway.factory';
+import { PaymentRepository } from './repository/payment.repository';
+import { PaymentEntity } from './entities/payment.entity';
 import { RpcBusinessException } from '@/common/exceptions/rpc-business.exception';
 import { ErrorCodeEnum } from '@/shared/constants/error-code.constant';
 import { LoggerService } from '@/shared/services/logger.service';

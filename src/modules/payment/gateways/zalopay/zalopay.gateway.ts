@@ -38,6 +38,20 @@ export class ZalopayGateWay implements PaymentGatewayInterface {
     this.key2 = this.configService.zalopayConfig.key2;
     this.host = 'https://promoted-electric-collie.ngrok-free.app';
   }
+
+  private buildZaloPayAppTransId(orderCode: string): string {
+    const now = dayjs();
+    return `${now.format('YYMMDD')}_${orderCode}`;
+  }
+
+  private getOrderCodeFromAppTransId(appTransId: string): string {
+    const parts = appTransId.split('_');
+    if (parts.length !== 2) {
+      throw new Error('Invalid app_trans_id format');
+    }
+    return parts[1];
+  }
+
   private initZaloPayCallbackRes(code: number, message: string): ZalopayCallbackResponse {
     return {
       return_code: code,
@@ -47,7 +61,7 @@ export class ZalopayGateWay implements PaymentGatewayInterface {
 
   private initZaloPayRequestBody(data: CreatePaymentLinkInput): ZaloCreatePaymentUrlRequestBody {
     const now = dayjs();
-    const appTransId = `${now.format('YYMMDD')}_${data.orderCode}`;
+    const appTransId = this.buildZaloPayAppTransId(data.orderCode);
 
     let redirectUrl = data.redirectUrl;
     if (redirectUrl.includes('?')) {
@@ -143,7 +157,7 @@ export class ZalopayGateWay implements PaymentGatewayInterface {
         };
       }
 
-      const orderCode = transData.app_trans_id;
+      const orderCode = this.getOrderCodeFromAppTransId(transData.app_trans_id);
 
       this.logger.log(`ZaloPay callback processed successfully for order: ${orderCode}`);
 

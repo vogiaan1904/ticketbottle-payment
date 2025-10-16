@@ -70,7 +70,7 @@ export class AppConfigService {
       },
       producer: {
         createPartitioner: Partitioners.LegacyPartitioner,
-        allowAutoTopicCreation: false,
+        allowAutoTopicCreation: this.nodeEnv === 'development', // Auto-create in dev only
         transactionTimeout: 30000,
         idempotent: true,
         maxInFlightRequests: 5,

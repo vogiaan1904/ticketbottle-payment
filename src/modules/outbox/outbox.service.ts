@@ -1,6 +1,9 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { Prisma, Outbox } from '@prisma/client';
 import { PrismaService } from '@infra/database/prisma/prisma.service';
+import { Injectable, Logger } from '@nestjs/common';
+import { Outbox, Prisma } from '@prisma/client';
+import { PaymentEntity } from '../payment/entities/payment.entity';
+import { EventType } from './enums/event-type.enum';
+import { PaymentCompletedEvent, PaymentFailedEvent } from './events/payment.event';
 
 export interface OutboxEventPayload {
   [key: string]: any;
@@ -49,68 +52,42 @@ export class OutboxService {
   /**
    * Payment-specific: Save payment completed event
    */
-  async savePaymentCompletedEvent(payment: any, tx?: Prisma.TransactionClient): Promise<Outbox> {
-    return this.saveEvent(
-      payment.id,
-      'Payment',
-      'PaymentCompleted',
-      {
-        paymentId: payment.id,
-        orderCode: payment.orderCode,
-        amountCents: payment.amountCents,
-        currency: payment.currency,
-        provider: payment.provider,
-        transactionId: payment.providerTransactionId,
-        completedAt: payment.completedAt?.toISOString() || new Date().toISOString(),
-      },
-      tx,
-    );
+  async savePaymentCompletedEvent(
+    payment: PaymentEntity,
+    tx?: Prisma.TransactionClient,
+  ): Promise<Outbox> {
+    const event: PaymentCompletedEvent = {
+      paymentId: payment.id,
+      orderCode: payment.orderCode,
+      amountCents: payment.amountCents,
+      currency: payment.currency,
+      provider: payment.provider,
+      transactionId: payment.providerTransactionId,
+      completedAt: (payment.completedAt || new Date()).toISOString(),
+    };
+
+    return this.saveEvent(payment.id, 'Payment', EventType.PAYMENT_COMPLETED, event, tx);
   }
 
   /**
    * Payment-specific: Save payment failed event
    */
   async savePaymentFailedEvent(
-    payment: any,
+    payment: PaymentEntity,
     errorCode?: string,
     tx?: Prisma.TransactionClient,
   ): Promise<Outbox> {
-    return this.saveEvent(
-      payment.id,
-      'Payment',
-      'PaymentFailed',
-      {
-        paymentId: payment.id,
-        orderCode: payment.orderCode,
-        amountCents: payment.amountCents,
-        currency: payment.currency,
-        provider: payment.provider,
-        errorCode,
-        failedAt: new Date().toISOString(),
-      },
-      tx,
-    );
-  }
+    const event: PaymentFailedEvent = {
+      paymentId: payment.id,
+      orderCode: payment.orderCode,
+      amountCents: payment.amountCents,
+      currency: payment.currency,
+      provider: payment.provider,
+      transactionId: payment.providerTransactionId,
+      failedAt: (payment.failedAt || new Date()).toISOString(),
+    };
 
-  /**
-   * Payment-specific: Save payment created event
-   */
-  async savePaymentCreatedEvent(payment: any, tx?: Prisma.TransactionClient): Promise<Outbox> {
-    return this.saveEvent(
-      payment.id,
-      'Payment',
-      'PaymentCreated',
-      {
-        paymentId: payment.id,
-        orderCode: payment.orderCode,
-        amountCents: payment.amountCents,
-        currency: payment.currency,
-        provider: payment.provider,
-        status: payment.status,
-        createdAt: payment.createdAt?.toISOString() || new Date().toISOString(),
-      },
-      tx,
-    );
+    return this.saveEvent(payment.id, 'Payment', EventType.PAYMENT_FAILED, event, tx);
   }
 
   /**
