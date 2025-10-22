@@ -36,7 +36,7 @@ export class ZalopayGateWay implements PaymentGatewayInterface {
     this.appID = this.configService.zalopayConfig.appID;
     this.key1 = this.configService.zalopayConfig.key1;
     this.key2 = this.configService.zalopayConfig.key2;
-    this.host = 'https://promoted-electric-collie.ngrok-free.app';
+    this.host = this.configService.appConfig.host;
   }
 
   private buildZaloPayAppTransId(orderCode: string): string {

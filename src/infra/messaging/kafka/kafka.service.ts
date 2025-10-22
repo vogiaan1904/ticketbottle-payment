@@ -43,8 +43,7 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
   ): Promise<void> {
     try {
       const kafkaMessage = this.createKafkaMessage(message, key, metadata);
-
-      await this.kafkaClient.emit(topic, kafkaMessage);
+      this.kafkaClient.emit(topic, kafkaMessage);
 
       this.logger.debug(`Message sent to topic: ${topic}`, {
         key,
@@ -75,7 +74,7 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
 
       // For batch, we need to use the emit pattern
       for (const message of kafkaMessages) {
-        await this.kafkaClient.emit(topic, message);
+        this.kafkaClient.emit(topic, message);
       }
 
       this.logger.debug(`Batch of ${messages.length} messages sent to topic: ${topic}`);

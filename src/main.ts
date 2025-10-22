@@ -5,6 +5,7 @@ import { LoggerService } from '@shared/services/logger.service';
 import { AppModule } from './app.module';
 import { RpcValidationException } from './common/exceptions/rpc-validation.exception';
 import { PAYMENT_PACKAGE_NAME } from './protogen/payment.pb';
+import { join } from 'path/win32';
 
 async function bootstrap() {
   const HOST = process.env.HOST || '0.0.0.0';
@@ -17,7 +18,7 @@ async function bootstrap() {
     options: {
       url: `${HOST}:${GRPC_PORT}`,
       package: PAYMENT_PACKAGE_NAME,
-      protoPath: 'src/protos/payment.proto',
+      protoPath: join(__dirname, 'protos', 'payment.proto'),
     },
   });
 
