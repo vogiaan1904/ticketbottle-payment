@@ -70,6 +70,9 @@ export class ZalopayGateWay implements PaymentGatewayInterface {
       redirectUrl += `?bookingCode=${data.orderCode}`;
     }
 
+    const callbackUrl = 'http://' + this.host + '/payment/webhook/zalopay';
+    console.log('callbackUrl', callbackUrl);
+
     const body: ZaloCreatePaymentUrlRequestBody = {
       app_id: this.appID * 1,
       app_user: 'TicketBottle',
@@ -82,7 +85,7 @@ export class ZalopayGateWay implements PaymentGatewayInterface {
       expire_duration_seconds: data.timeoutSeconds || this.ORDER_TIMEOUT_SECONDS,
       description: 'Payment for order ' + data.orderCode,
       bank_code: '',
-      callback_url: this.host + '/zalopay/callback',
+      callback_url: callbackUrl,
       item: JSON.stringify([]),
       mac: '',
     };

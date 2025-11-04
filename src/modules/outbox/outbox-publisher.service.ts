@@ -1,7 +1,7 @@
+import { KafkaProducerService } from '@/infra/messaging/kafka/kafka-producer.service';
 import { KAFKA_TOPICS } from '@/shared/constants/kafka-topic.constant';
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { KafkaService } from '../../infra/messaging/kafka/kafka.service';
 import { EventType } from './enums/event-type.enum';
 import { OutboxService } from './outbox.service';
 
@@ -18,12 +18,11 @@ export class OutboxPublisherService implements OnModuleInit, OnModuleDestroy {
 
   constructor(
     private readonly outboxService: OutboxService,
-    private readonly kafkaService: KafkaService,
+    private readonly kafkaProducer: KafkaProducerService,
   ) {}
 
   async onModuleInit() {
     this.logger.log('Outbox Publisher Service initialized');
-    this.processOutboxEvents();
   }
 
   async onModuleDestroy() {
@@ -90,11 +89,12 @@ export class OutboxPublisherService implements OnModuleInit, OnModuleDestroy {
         return;
       }
 
-      await this.kafkaService.sendMessage(topic, event.payload, event.aggregateId, {
+      await this.kafkaProducer.publish(topic, event.payload, event.aggregateId, {
         eventType: event.eventType,
         eventVersion: '1.0',
         source: 'payment-service',
         correlationId: event.aggregateId,
+        messageId: crypto.randomUUID(),
       });
 
       await this.outboxService.markAsPublished(event.id);

@@ -1,17 +1,21 @@
 import { Module } from '@nestjs/common';
+import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { SharedModule } from './shared.module';
-import { PaymentModule } from './modules/payment/payment.module';
-import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 import { GlobalGrpcExceptionFilter } from './common/filters/global-grpc-exception.filter';
-import { TransformInterceptor } from './common/interceptors/transfrom.interceptor';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
+import { TransformInterceptor } from './common/interceptors/transfrom.interceptor';
 import { OutboxModule } from './modules/outbox/outbox.module';
-import { KafkaModule } from './infra/messaging/kafka/kafka.module';
+import { PaymentModule } from './modules/payment/payment.module';
+import { SharedModule } from './shared.module';
 
+/**
+ * gRPC Application Module
+ * - Business logic + Background processing
+ * - Outbox publisher ENABLED (processes events to Kafka)
+ */
 @Module({
-  imports: [SharedModule, PaymentModule, OutboxModule, KafkaModule],
+  imports: [SharedModule, PaymentModule, OutboxModule.forRoot({ enablePublisher: true })],
   controllers: [AppController],
   providers: [
     AppService,
@@ -29,4 +33,4 @@ import { KafkaModule } from './infra/messaging/kafka/kafka.module';
     },
   ],
 })
-export class AppModule {}
+export class GrpcAppModule {}

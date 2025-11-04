@@ -1,19 +1,27 @@
+/**
+ * Payment completed event
+ * Uses snake_case to match Kafka consumer expectations (Golang)
+ */
 export interface PaymentCompletedEvent {
-  orderCode: string;
-  paymentId: string;
-  amountCents: number;
+  order_code: string;
+  payment_id: string;
+  amount_cents: number;
   currency: string;
   provider: string;
-  transactionId: string;
-  completedAt: string; // ISO 8601 string (e.g., "2025-10-16T12:34:56.789Z")
+  transaction_id: string;
+  completed_at: string; // ISO 8601 string (e.g., "2025-10-16T12:34:56.789Z")
 }
 
+/**
+ * Payment failed event
+ * Uses snake_case to match Kafka consumer expectations (Golang)
+ */
 export interface PaymentFailedEvent {
-  orderCode: string;
-  paymentId: string;
-  amountCents: number;
+  order_code: string;
+  payment_id: string;
+  amount_cents: number;
   currency: string;
   provider: string;
-  transactionId: string;
-  failedAt: string; // ISO 8601 string (e.g., "2025-10-16T12:34:56.789Z")
+  transaction_id: string;
+  failed_at: string; // ISO 8601 string (e.g., "2025-10-16T12:34:56.789Z")
 }

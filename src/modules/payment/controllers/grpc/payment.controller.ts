@@ -17,13 +17,6 @@ export class GrpcPaymentController {
   @GrpcMethod(PAYMENT_SERVICE_NAME, 'createPaymentIntent')
   async createIntent(dto: CreatePaymentIntentDto): Promise<CreatePaymentIntentResponse> {
     this.logger.info(`GrpcPaymentController.createPaymentIntent called.`);
-    try {
-      const svcDto = dto.toServiceDto();
-    } catch (error) {
-      console.log(error);
-      throw error;
-    }
-
     const url = await this.paymentService.createPaymentIntent(dto.toServiceDto());
     this.logger.info(`GrpcPaymentController.createPaymentIntent completed.`);
 

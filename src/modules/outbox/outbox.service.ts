@@ -57,13 +57,13 @@ export class OutboxService {
     tx?: Prisma.TransactionClient,
   ): Promise<Outbox> {
     const event: PaymentCompletedEvent = {
-      paymentId: payment.id,
-      orderCode: payment.orderCode,
-      amountCents: payment.amountCents,
+      payment_id: payment.id,
+      order_code: payment.orderCode,
+      amount_cents: payment.amountCents,
       currency: payment.currency,
       provider: payment.provider,
-      transactionId: payment.providerTransactionId,
-      completedAt: (payment.completedAt || new Date()).toISOString(),
+      transaction_id: payment.providerTransactionId,
+      completed_at: (payment.completedAt || new Date()).toISOString(),
     };
 
     return this.saveEvent(payment.id, 'Payment', EventType.PAYMENT_COMPLETED, event, tx);
@@ -78,13 +78,13 @@ export class OutboxService {
     tx?: Prisma.TransactionClient,
   ): Promise<Outbox> {
     const event: PaymentFailedEvent = {
-      paymentId: payment.id,
-      orderCode: payment.orderCode,
-      amountCents: payment.amountCents,
+      payment_id: payment.id,
+      order_code: payment.orderCode,
+      amount_cents: payment.amountCents,
       currency: payment.currency,
       provider: payment.provider,
-      transactionId: payment.providerTransactionId,
-      failedAt: (payment.failedAt || new Date()).toISOString(),
+      transaction_id: payment.providerTransactionId,
+      failed_at: (payment.failedAt || new Date()).toISOString(),
     };
 
     return this.saveEvent(payment.id, 'Payment', EventType.PAYMENT_FAILED, event, tx);

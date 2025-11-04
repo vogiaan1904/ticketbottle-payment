@@ -2,18 +2,18 @@ import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 import { LoggerService } from '@shared/services/logger.service';
-import { AppModule } from './app.module';
+import { GrpcAppModule } from './grpc-app.module';
+import { HttpAppModule } from './http-app.module';
 import { RpcValidationException } from './common/exceptions/rpc-validation.exception';
 import { PAYMENT_PACKAGE_NAME } from './protogen/payment.pb';
 import { join } from 'path/win32';
 
 async function bootstrap() {
-  const HOST = process.env.HOST || '0.0.0.0';
+  const HOST = '0.0.0.0';
   const GRPC_PORT = process.env.GRPC_PORT || '50055';
   const PORT = process.env.PORT || '8085';
 
-  // Create as gRPC microservice first (primary service)
-  const app = await NestFactory.createMicroservice<MicroserviceOptions>(AppModule, {
+  const app = await NestFactory.createMicroservice<MicroserviceOptions>(GrpcAppModule, {
     transport: Transport.GRPC,
     options: {
       url: `${HOST}:${GRPC_PORT}`,
@@ -25,7 +25,6 @@ async function bootstrap() {
   const logger = app.get(LoggerService);
   app.useLogger(logger);
 
-  // Configure validation for gRPC (primary service)
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -36,7 +35,7 @@ async function bootstrap() {
     }),
   );
 
-  const httpApp = await NestFactory.create(AppModule);
+  const httpApp = await NestFactory.create(HttpAppModule);
   httpApp.useLogger(logger);
 
   httpApp.enableCors({
@@ -45,7 +44,7 @@ async function bootstrap() {
   });
 
   await httpApp.listen(PORT);
-  logger.log(`HTTP Server (callbacks) running on: http://${HOST}:${PORT}`);
+  logger.log(`HTTP Server running on: http://${HOST}:${PORT}`);
 
   await app.listen();
   logger.log(`gRPC Server running on: ${HOST}:${GRPC_PORT}`);

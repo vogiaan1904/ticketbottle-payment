@@ -3,7 +3,14 @@ import * as winston from 'winston';
 import * as DailyRotateFile from 'winston-daily-rotate-file';
 import * as dotenv from 'dotenv';
 import { ISwaggerConfig } from '@/shared/interfaces/swagger-config.interface';
-import { Partitioners } from 'kafkajs';
+import {
+  KafkaConfig,
+  logLevel,
+  Partitioners,
+  ProducerConfig,
+  RetryOptions,
+  SASLOptions,
+} from 'kafkajs';
 
 @Injectable()
 export class AppConfigService {
@@ -44,48 +51,62 @@ export class AppConfigService {
     };
   }
 
-  get kafkaConfig() {
+  getKafkaClientConfig(): KafkaConfig {
+    const brokers = (this.get('KAFKA_BROKERS') || 'kafka:29092')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    const retry: RetryOptions | undefined = {
+      initialRetryTime: this.getNumber('KAFKA_RETRY_INITIAL_MS') || 100,
+      retries: this.getNumber('KAFKA_RETRY_RETRIES') || 8,
+      maxRetryTime: this.getNumber('KAFKA_RETRY_MAX_MS') || 30_000,
+      factor: this.getNumber('KAFKA_RETRY_FACTOR') || 2,
+    };
+
+    const useSSL = this.get('KAFKA_SSL') === 'true';
+
+    let sasl: SASLOptions | undefined;
+    const mechanism = this.get('KAFKA_SASL_MECHANISM');
+    const username = this.get('KAFKA_USERNAME');
+    const password = this.get('KAFKA_PASSWORD');
+    if (mechanism && username && password) {
+      sasl = { mechanism, username, password } as SASLOptions;
+    }
+
     return {
-      client: {
-        clientId: this.get('KAFKA_CLIENT_ID') || 'payment-service',
-        brokers: (this.get('KAFKA_BROKERS') || 'localhost:9092').split(','),
-        connectionTimeout: 3000,
-        requestTimeout: 25000,
-        retry: {
-          initialRetryTime: 100,
-          retries: 8,
-          maxRetryTime: 30000,
-          multiplier: 2,
-          factor: 0.2,
-        },
-        // SSL/SASL configuration for production
-        ...(this.get('KAFKA_SSL') === 'true' && {
-          ssl: true,
-          sasl: {
-            mechanism: 'plain' as const,
-            username: this.get('KAFKA_USERNAME') || '',
-            password: this.get('KAFKA_PASSWORD') || '',
-          },
-        }),
-      },
-      producer: {
-        createPartitioner: Partitioners.LegacyPartitioner,
-        allowAutoTopicCreation: this.nodeEnv === 'development', // Auto-create in dev only
-        transactionTimeout: 30000,
-        idempotent: true,
-        maxInFlightRequests: 5,
-      },
-      consumer: {
-        groupId: this.get('KAFKA_CONSUMER_GROUP_ID') || 'payment-consumer-group',
-        sessionTimeout: 30000,
-        heartbeatInterval: 3000,
-        maxBytesPerPartition: 1048576, // 1MB
-        retry: {
-          initialRetryTime: 100,
-          retries: 8,
-          maxRetryTime: 30000,
-          multiplier: 2,
-        },
+      clientId: this.get('KAFKA_CLIENT_ID') || 'app',
+      brokers,
+      ssl: useSSL || undefined,
+      sasl,
+      connectionTimeout: this.getNumber('KAFKA_CONNECTION_TIMEOUT_MS') || 3000,
+      authenticationTimeout: this.getNumber('KAFKA_AUTH_TIMEOUT_MS') || 10_000,
+      reauthenticationThreshold: this.getNumber('KAFKA_REAUTH_THRESHOLD_MS') || 60_000,
+      requestTimeout: this.getNumber('KAFKA_REQUEST_TIMEOUT_MS') || 25_000,
+      enforceRequestTimeout: this.get('KAFKA_ENFORCE_REQUEST_TIMEOUT') === 'true',
+      retry,
+      logLevel: logLevel.NOTHING,
+    };
+  }
+
+  getKafkaProducerConfig(): ProducerConfig {
+    const partitionerEnv = (this.get('KAFKA_PRODUCER_PARTITIONER') || 'legacy').toLowerCase();
+    const createPartitioner =
+      partitionerEnv === 'default'
+        ? Partitioners.DefaultPartitioner
+        : Partitioners.LegacyPartitioner;
+
+    return {
+      idempotent: this.get('KAFKA_PRODUCER_IDEMPOTENT') === 'true',
+      maxInFlightRequests: this.getNumber('KAFKA_PRODUCER_MAX_IN_FLIGHT') || 5,
+      transactionTimeout: this.getNumber('KAFKA_PRODUCER_TX_TIMEOUT_MS') || 30_000,
+      allowAutoTopicCreation: this.get('KAFKA_PRODUCER_AUTO_TOPIC') === 'true',
+      createPartitioner,
+      retry: {
+        initialRetryTime: this.getNumber('KAFKA_RETRY_INITIAL_MS') || 100,
+        retries: this.getNumber('KAFKA_RETRY_RETRIES') || 8,
+        maxRetryTime: this.getNumber('KAFKA_RETRY_MAX_MS') || 30_000,
+        factor: this.getNumber('KAFKA_RETRY_FACTOR') || 2,
       },
     };
   }
@@ -178,14 +199,13 @@ export class AppConfigService {
 
   get appConfig() {
     return {
-      host: this.get('APP_HOST'),
-      name: this.get('APP_NAME'),
-      version: this.get('APP_VERSION'),
+      host: this.get('HOST'),
+      name: this.get('NAME'),
+      version: this.get('VERSION'),
       port: this.getNumber('APP_PORT'),
       globalPrefix: this.get('APP_GLOBAL_PREFIX'),
-      corsOrigins: this.get('APP_CORS_ORIGINS'),
-      logLevel: this.get('APP_LOG_LEVEL'),
-      initAdminPassword: this.get('APP_INIT_ADMIN_PASSWORD'),
+      corsOrigins: this.get('CORS_ORIGINS'),
+      logLevel: this.get('LOG_LEVEL'),
       encryptKey: this.get('ENCRYPT_KEY'),
     };
   }
