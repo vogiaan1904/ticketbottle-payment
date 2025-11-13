@@ -10,4 +10,5 @@ export class CreatePaymentIntentDto {
   transactionId: string = ''; // provider's transaction id
   redirectUrl: string;
   timeoutSeconds: number;
+  paymentUrl: string = '';
 }

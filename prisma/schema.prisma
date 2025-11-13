@@ -22,6 +22,7 @@ model Payment {
   providerTransactionId String // ZaloPay's app_trans_id, Stripe's payment_intent_id
   idempotencyKey        String        @unique
   redirectUrl           String
+  paymentUrl            String
   status                PaymentStatus
   metadata              Json?
   createdAt             DateTime      @default(now())

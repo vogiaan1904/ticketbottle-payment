@@ -10,6 +10,7 @@ export class PaymentEntity implements Payment {
   idempotencyKey: string;
   status: PaymentStatus;
   redirectUrl: string;
+  paymentUrl: string;
   metadata: any;
   createdAt: Date;
   updatedAt: Date;

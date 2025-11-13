@@ -9,11 +9,6 @@ import { OutboxModule } from './modules/outbox/outbox.module';
 import { PaymentModule } from './modules/payment/payment.module';
 import { SharedModule } from './shared.module';
 
-/**
- * gRPC Application Module
- * - Business logic + Background processing
- * - Outbox publisher ENABLED (processes events to Kafka)
- */
 @Module({
   imports: [SharedModule, PaymentModule, OutboxModule.forRoot({ enablePublisher: true })],
   controllers: [AppController],

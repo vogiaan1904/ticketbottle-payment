@@ -20,12 +20,13 @@ export class PaymentRepository {
         status: PaymentStatus.PENDING,
         provider: dto.provider,
         providerTransactionId: dto.transactionId,
+        paymentUrl: dto.paymentUrl,
       },
     });
     return {} as PaymentEntity;
   }
 
-  async findByIdentempotencyKey(idempotencyKey: string): Promise<PaymentEntity | null> {
+  async findByIdempotencyKey(idempotencyKey: string): Promise<PaymentEntity | null> {
     const payment = await this.prisma.payment.findUnique({
       where: { idempotencyKey },
     });

@@ -14,8 +14,9 @@ export class CreatePaymentIntentDto implements CreatePaymentIntentRequest {
       idempotencyKey: this.idempotencyKey,
       provider: PaymentProviderMapper.toPrisma(this.provider),
       redirectUrl: this.redirectUrl,
-      transactionId: '', // provider's transaction id
+      transactionId: '',
       timeoutSeconds: this.timeoutSeconds,
+      paymentUrl: '',
     };
   }
 

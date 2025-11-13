@@ -70,8 +70,7 @@ export class ZalopayGateWay implements PaymentGatewayInterface {
       redirectUrl += `?bookingCode=${data.orderCode}`;
     }
 
-    const callbackUrl = 'http://' + this.host + '/payment/webhook/zalopay';
-    console.log('callbackUrl', callbackUrl);
+    const callbackUrl = 'https://' + this.host + '/webhook/zalopay';
 
     const body: ZaloCreatePaymentUrlRequestBody = {
       app_id: this.appID * 1,

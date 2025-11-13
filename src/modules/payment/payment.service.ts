@@ -23,10 +23,6 @@ export class PaymentService {
     logger.setContext(PaymentService.name);
   }
 
-  /**
-   * Handle successful payment using Outbox Pattern
-   * Updates payment status and saves event to outbox in a single transaction
-   */
   private async handleSuccessPayment(orderCode: string): Promise<void> {
     const now = new Date();
     const payment = await this.prisma.$transaction(async (tx) => {
@@ -108,7 +104,14 @@ export class PaymentService {
   }
 
   async createPaymentIntent(dto: CreatePaymentIntentDto): Promise<string> {
+    const existing = await this.repo.findByIdempotencyKey(dto.idempotencyKey);
+    if (existing) {
+      this.logger.log(`Returning cached payment for idempotency key: ${dto.idempotencyKey}`);
+      return existing.paymentUrl;
+    }
+
     const gateway = this.paymentGatewayFactory.getGateway(dto.provider);
+
     const { url, transactionId } = await gateway.createPaymentLink({
       amount: dto.amountCents,
       orderCode: dto.orderCode,
@@ -117,15 +120,16 @@ export class PaymentService {
       redirectUrl: dto.redirectUrl,
       timeoutSeconds: dto.timeoutSeconds,
     });
-
     dto.transactionId = transactionId;
+    dto.paymentUrl = url;
+
     await this.repo.create(dto);
 
     return url;
   }
 
   async findByIdempotencyKey(idempotencyKey: string): Promise<PaymentEntity> {
-    const payment = await this.repo.findByIdentempotencyKey(idempotencyKey);
+    const payment = await this.repo.findByIdempotencyKey(idempotencyKey);
     if (!payment) throw new RpcBusinessException(ErrorCodeEnum.PermissionDenied);
 
     return payment;
