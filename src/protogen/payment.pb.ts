@@ -58,6 +58,15 @@ export interface CancelPaymentIntentResponse {
   status: PaymentStatus;
 }
 
+export interface GetPaymentUrlByIdempotencyKeyRequest {
+  idempotencyKey: string;
+}
+
+export interface GetPaymentUrlByIdempotencyKeyResponse {
+  paymentUrl: string;
+  status: PaymentStatus;
+}
+
 export const PAYMENT_PACKAGE_NAME = "payment";
 
 export interface PaymentServiceClient {
@@ -66,6 +75,10 @@ export interface PaymentServiceClient {
   confirmPaymentIntent(request: ConfirmPaymentIntentRequest): Observable<ConfirmPaymentIntentResponse>;
 
   cancelPaymentIntent(request: CancelPaymentIntentRequest): Observable<CancelPaymentIntentResponse>;
+
+  getPaymentUrlByIdempotencyKey(
+    request: GetPaymentUrlByIdempotencyKeyRequest,
+  ): Observable<GetPaymentUrlByIdempotencyKeyResponse>;
 }
 
 export interface PaymentServiceController {
@@ -80,11 +93,23 @@ export interface PaymentServiceController {
   cancelPaymentIntent(
     request: CancelPaymentIntentRequest,
   ): Promise<CancelPaymentIntentResponse> | Observable<CancelPaymentIntentResponse> | CancelPaymentIntentResponse;
+
+  getPaymentUrlByIdempotencyKey(
+    request: GetPaymentUrlByIdempotencyKeyRequest,
+  ):
+    | Promise<GetPaymentUrlByIdempotencyKeyResponse>
+    | Observable<GetPaymentUrlByIdempotencyKeyResponse>
+    | GetPaymentUrlByIdempotencyKeyResponse;
 }
 
 export function PaymentServiceControllerMethods() {
   return function (constructor: Function) {
-    const grpcMethods: string[] = ["createPaymentIntent", "confirmPaymentIntent", "cancelPaymentIntent"];
+    const grpcMethods: string[] = [
+      "createPaymentIntent",
+      "confirmPaymentIntent",
+      "cancelPaymentIntent",
+      "getPaymentUrlByIdempotencyKey",
+    ];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
       GrpcMethod("PaymentService", method)(constructor.prototype[method], method, descriptor);

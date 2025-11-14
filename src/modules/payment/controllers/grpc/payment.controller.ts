@@ -1,9 +1,15 @@
 import { Controller } from '@nestjs/common';
 import { PaymentService } from '../../payment.service';
 import { LoggerService } from '@/shared/services/logger.service';
-import { CreatePaymentIntentResponse, PAYMENT_SERVICE_NAME } from '@/protogen/payment.pb';
+import {
+  CreatePaymentIntentResponse,
+  GetPaymentUrlByIdempotencyKeyResponse,
+  PAYMENT_SERVICE_NAME,
+} from '@/protogen/payment.pb';
 import { CreatePaymentIntentDto } from './dto/create-intent.dto';
 import { GrpcMethod } from '@nestjs/microservices';
+import { GetUrlDto } from './dto';
+import { PaymentStatusMapper } from './mappers/status.mapper';
 
 @Controller()
 export class GrpcPaymentController {
@@ -21,5 +27,19 @@ export class GrpcPaymentController {
     this.logger.info(`GrpcPaymentController.createPaymentIntent completed.`);
 
     return { paymentUrl: url };
+  }
+
+  @GrpcMethod(PAYMENT_SERVICE_NAME, 'getPaymentUrlByIdempotencyKey')
+  async getPaymentUrlByIdempotencyKey(
+    dto: GetUrlDto,
+  ): Promise<GetPaymentUrlByIdempotencyKeyResponse> {
+    this.logger.info(`GrpcPaymentController.getPaymentUrlByIdempotencyKey called.`);
+    const payment = await this.paymentService.findByIdempotencyKey(dto.idempotencyKey);
+    this.logger.info(`GrpcPaymentController.getPaymentUrlByIdempotencyKey completed.`);
+
+    return {
+      paymentUrl: payment.paymentUrl,
+      status: PaymentStatusMapper.toProto(payment.status),
+    };
   }
 }

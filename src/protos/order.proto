@@ -60,11 +60,13 @@ message CreateOrderRequest {
     string payment_method = 8;
     repeated CreateOrderItem items = 3;
     string currency = 4;
+    string checkout_token = 9;
+    string redirect_url = 10;
 }
 
 message CreateOrderResponse {
     Order order = 1;
-    string redirect_url = 2;
+    string payment_url = 2;
 }
 
 message PaginationInfo {
