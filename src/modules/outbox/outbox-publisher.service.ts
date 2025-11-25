@@ -5,6 +5,19 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { EventType } from './enums/event-type.enum';
 import { OutboxService } from './outbox.service';
 
+/**
+ * @deprecated This service has been migrated to AWS Lambda.
+ *
+ * The outbox processing is now handled by:
+ * - aws/lambda/outbox-processor/ - Polls and publishes events (every 1 min)
+ * - aws/lambda/outbox-cleanup/ - Cleanup and monitoring (daily)
+ *
+ * This file is kept for reference during the migration period.
+ * Remove this service from the module imports when deploying to AWS.
+ *
+ * @see aws/lambda/outbox-processor/index.ts
+ * @see aws/lambda/outbox-cleanup/index.ts
+ */
 @Injectable()
 export class OutboxPublisherService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(OutboxPublisherService.name);
