@@ -196,9 +196,7 @@ async function handleSuccessPayment(orderCode: string): Promise<void> {
 
     // Idempotent: If already completed, skip processing
     if (existingPayment.status === PaymentStatus.COMPLETED) {
-      console.log(
-        `Payment already completed for order: ${orderCode}, skipping duplicate webhook`
-      );
+      console.log(`Payment already completed for order: ${orderCode}, skipping duplicate webhook`);
       return;
     }
 
@@ -252,7 +250,7 @@ async function handleFailedPayment(orderCode: string): Promise<void> {
       existingPayment.status === PaymentStatus.FAILED
     ) {
       console.log(
-        `Payment already in final state (${existingPayment.status}) for order: ${orderCode}, skipping duplicate webhook`
+        `Payment already in final state (${existingPayment.status}) for order: ${orderCode}, skipping duplicate webhook`,
       );
       return;
     }
