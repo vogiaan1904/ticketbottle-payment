@@ -159,14 +159,15 @@ export class ZalopayGateWay implements PaymentGatewayInterface {
         };
       }
 
-      const orderCode = this.getOrderCodeFromAppTransId(transData.app_trans_id);
+      // Return app_trans_id as providerTransactionId for database lookup
+      const appTransId = transData.app_trans_id;
 
-      this.logger.log(`ZaloPay callback processed successfully for order: ${orderCode}`);
+      this.logger.log(`ZaloPay callback: appTransId=${appTransId}`);
 
       return {
         success: true,
         response: this.initZaloPayCallbackRes(1, 'Success'),
-        orderCode: orderCode,
+        providerTransactionId: appTransId,
       };
     } catch (error) {
       this.logger.error('Error processing ZaloPay callback:', error);

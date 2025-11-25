@@ -155,6 +155,14 @@ export class AppConfigService {
     };
   }
 
+  get payosConfig() {
+    return {
+      clientId: this.get('PAYOS_CLIENT_ID'),
+      apiKey: this.get('PAYOS_API_KEY'),
+      checksumKey: this.get('PAYOS_CHECKSUM_KEY'),
+    };
+  }
+
   get winstonConfig() {
     return {
       transports: [

@@ -31,6 +31,7 @@
     "@nestjs/microservices": "^11.1.6",
     "@nestjs/platform-express": "^11.0.1",
     "@nestjs/schedule": "^6.0.1",
+    "@payos/node": "^2.0.3",
     "@prisma/client": "^6.17.0",
     "axios": "^1.12.2",
     "class-transformer": "^0.5.1",

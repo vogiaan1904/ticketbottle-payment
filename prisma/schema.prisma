@@ -19,7 +19,7 @@ model Payment {
   amountCents           Int
   currency              Currency
   provider              String
-  providerTransactionId String // ZaloPay's app_trans_id, Stripe's payment_intent_id
+  providerTransactionId String        @unique // ZaloPay's app_trans_id, PayOS's order code
   idempotencyKey        String        @unique
   redirectUrl           String
   paymentUrl            String

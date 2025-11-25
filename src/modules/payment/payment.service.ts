@@ -23,33 +23,47 @@ export class PaymentService {
     logger.setContext(PaymentService.name);
   }
 
-  private async handleSuccessPayment(orderCode: string): Promise<void> {
+  private async handleSuccessPayment(providerTransactionId: string): Promise<void> {
     const now = new Date();
-    const payment = await this.prisma.$transaction(async (tx) => {
+
+    // Find payment by providerTransactionId first
+    const existingPayment = await this.repo.findByProviderTransactionId(providerTransactionId);
+    if (!existingPayment) {
+      this.logger.error(`Payment not found for providerTransactionId: ${providerTransactionId}`);
+      throw new Error(`Payment not found for providerTransactionId: ${providerTransactionId}`);
+    }
+
+    await this.prisma.$transaction(async (tx) => {
       const payment = await tx.payment.update({
-        where: { orderCode },
+        where: { orderCode: existingPayment.orderCode },
         data: { status: PaymentStatus.COMPLETED, completedAt: now },
       });
 
       await this.outboxService.savePaymentCompletedEvent(payment, tx);
-
-      return payment;
     });
 
-    this.logger.info(`Payment completed for order: ${orderCode}`);
+    this.logger.info(
+      `Payment completed: orderCode=${existingPayment.orderCode}, providerTransactionId=${providerTransactionId}`,
+    );
   }
 
   private async handleFailedPayment(
-    orderCode: string,
+    providerTransactionId: string,
     reason?: string,
     errorCode?: string,
   ): Promise<void> {
     try {
       const now = new Date();
 
-      const payment = await this.prisma.$transaction(async (tx) => {
+      const existingPayment = await this.repo.findByProviderTransactionId(providerTransactionId);
+      if (!existingPayment) {
+        this.logger.error(`Payment not found for providerTransactionId: ${providerTransactionId}`);
+        throw new Error(`Payment not found for providerTransactionId: ${providerTransactionId}`);
+      }
+
+      await this.prisma.$transaction(async (tx) => {
         const payment = await tx.payment.update({
-          where: { orderCode },
+          where: { orderCode: existingPayment.orderCode },
           data: {
             status: PaymentStatus.FAILED,
             failedAt: now,
@@ -57,16 +71,18 @@ export class PaymentService {
         });
 
         await this.outboxService.savePaymentFailedEvent(payment, errorCode, tx);
-
-        return payment;
       });
 
-      this.logger.log(`Payment failed for order: ${orderCode}`);
+      this.logger.log(
+        `Payment failed: orderCode=${existingPayment.orderCode}, providerTransactionId=${providerTransactionId}`,
+      );
     } catch (error) {
-      this.logger.error(`Failed to handle failed payment for order: ${orderCode}`, error);
+      this.logger.error(
+        `Failed to handle failed payment for providerTransactionId: ${providerTransactionId}`,
+        error,
+      );
       throw error;
     }
-    this.logger.info(`Payment failed for order: ${orderCode}`);
   }
 
   async cancelPayment(orderCode: string): Promise<void> {
@@ -140,12 +156,12 @@ export class PaymentService {
 
     const output = await gateway.handleCallback(callbackBody);
 
-    if (!output.orderCode) {
-      this.logger.error('Callback handling failed');
+    if (!output.providerTransactionId) {
+      this.logger.error('Callback handling failed - missing providerTransactionId');
     } else if (output.success) {
-      await this.handleSuccessPayment(output.orderCode);
+      await this.handleSuccessPayment(output.providerTransactionId);
     } else {
-      await this.handleFailedPayment(output.orderCode, 'Callback indicated failure');
+      await this.handleFailedPayment(output.providerTransactionId, 'Callback indicated failure');
     }
 
     return output.response;

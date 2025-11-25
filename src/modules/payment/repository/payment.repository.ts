@@ -46,6 +46,16 @@ export class PaymentRepository {
     return toPaymentEntity(payment);
   }
 
+  async findByProviderTransactionId(providerTransactionId: string): Promise<PaymentEntity | null> {
+    const payment = await this.prisma.payment.findUnique({
+      where: { providerTransactionId },
+    });
+
+    if (!payment) return null;
+
+    return toPaymentEntity(payment);
+  }
+
   async updateStatus(id: string, status: PaymentStatus): Promise<PaymentEntity> {
     const payment = await this.prisma.payment.update({
       where: { id },

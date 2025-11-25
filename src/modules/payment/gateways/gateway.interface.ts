@@ -20,7 +20,7 @@ export interface CreatePaymentData {
 export interface HandleCallbackOutput {
   success: boolean;
   response: any;
-  orderCode?: string;
+  providerTransactionId?: string;
 }
 
 export interface CreatePaymentLinkOutput {
