@@ -78,9 +78,8 @@ export const handler = async (
       statusCode: 500,
       body: JSON.stringify({ error: 'Internal server error' }),
     };
-  } finally {
-    await prisma.$disconnect();
   }
+  // Note: Prisma connection is kept alive for reuse (AWS Lambda best practice)
 };
 
 async function handleCallback(provider: PaymentProvider, callbackBody: any): Promise<any> {
@@ -185,6 +184,24 @@ async function handleSuccessPayment(orderCode: string): Promise<void> {
   const now = new Date();
 
   await prisma.$transaction(async (tx) => {
+    // Idempotency: Check current payment status first
+    const existingPayment = await tx.payment.findUnique({
+      where: { orderCode },
+    });
+
+    if (!existingPayment) {
+      console.warn(`Payment not found for order: ${orderCode}`);
+      return;
+    }
+
+    // Idempotent: If already completed, skip processing
+    if (existingPayment.status === PaymentStatus.COMPLETED) {
+      console.log(
+        `Payment already completed for order: ${orderCode}, skipping duplicate webhook`
+      );
+      return;
+    }
+
     const payment = await tx.payment.update({
       where: { orderCode },
       data: { status: PaymentStatus.COMPLETED, completedAt: now },
@@ -210,16 +227,36 @@ async function handleSuccessPayment(orderCode: string): Promise<void> {
       },
     });
 
+    console.log(`Payment completed for order: ${orderCode}`);
     return payment;
   });
-
-  console.log(`Payment completed for order: ${orderCode}`);
 }
 
 async function handleFailedPayment(orderCode: string): Promise<void> {
   const now = new Date();
 
   await prisma.$transaction(async (tx) => {
+    // Idempotency: Check current payment status first
+    const existingPayment = await tx.payment.findUnique({
+      where: { orderCode },
+    });
+
+    if (!existingPayment) {
+      console.warn(`Payment not found for order: ${orderCode}`);
+      return;
+    }
+
+    // Idempotent: If already in a final state (COMPLETED or FAILED), skip
+    if (
+      existingPayment.status === PaymentStatus.COMPLETED ||
+      existingPayment.status === PaymentStatus.FAILED
+    ) {
+      console.log(
+        `Payment already in final state (${existingPayment.status}) for order: ${orderCode}, skipping duplicate webhook`
+      );
+      return;
+    }
+
     const payment = await tx.payment.update({
       where: { orderCode },
       data: { status: PaymentStatus.FAILED, failedAt: now },
@@ -245,8 +282,7 @@ async function handleFailedPayment(orderCode: string): Promise<void> {
       },
     });
 
+    console.log(`Payment failed for order: ${orderCode}`);
     return payment;
   });
-
-  console.log(`Payment failed for order: ${orderCode}`);
 }
