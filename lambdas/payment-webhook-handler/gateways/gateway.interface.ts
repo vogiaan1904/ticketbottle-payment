@@ -1,8 +1,3 @@
-/**
- * Payment gateway interface for Lambda functions
- * Adapted from main service, removing NestJS dependencies
- */
-
 export class CreatePaymentLinkInput {
   amount: number;
   orderCode: string;

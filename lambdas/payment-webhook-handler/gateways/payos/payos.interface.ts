@@ -1,7 +1,3 @@
-/**
- * PayOS interfaces based on official documentation
- */
-
 export interface PayOSCreatePaymentLinkRequestBody {
   orderCode: number;
   amount: number;

@@ -1,20 +1,9 @@
-/**
- * Outbox Processor Lambda Entry Point
- * Processes pending outbox events and publishes them to Kafka
- */
-
 import { EventBridgeEvent, Context } from 'aws-lambda';
 import { logger } from '@/common/logger';
 import { handleScheduledEvent } from './handlers/processor.handler';
 import { getPrismaClient } from '@/common/database/prisma';
 import { disconnectKafka } from '@/common/kafka/producer';
 
-/**
- * Lambda handler function
- * @param event EventBridge scheduled event
- * @param context Lambda context
- * @returns Processing result
- */
 export const handler = async (
   event: EventBridgeEvent<string, any>,
   context: Context,
@@ -35,10 +24,6 @@ export const handler = async (
     // Process outbox events
     const result = await handleScheduledEvent(event);
 
-    logger.info('Outbox processor completed successfully', {
-      statusCode: result.statusCode,
-    });
-
     return result;
   } catch (error) {
     logger.error('Unhandled error in Lambda handler', {
@@ -57,11 +42,10 @@ export const handler = async (
   } finally {
     // Clean up connections if Lambda is shutting down
     if (context.getRemainingTimeInMillis() < 1000) {
-      logger.info('Lambda timeout approaching, disconnecting clients');
+      logger.warn('Lambda timeout approaching, disconnecting clients');
 
       try {
         await disconnectKafka();
-        logger.info('Kafka producer disconnected');
       } catch (error) {
         logger.error('Failed to disconnect Kafka producer', {
           error: error instanceof Error ? error.message : String(error),
@@ -70,7 +54,6 @@ export const handler = async (
 
       try {
         await getPrismaClient().$disconnect();
-        logger.info('Prisma client disconnected');
       } catch (error) {
         logger.error('Failed to disconnect Prisma client', {
           error: error instanceof Error ? error.message : String(error),

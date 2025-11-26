@@ -1,6 +1,3 @@
-/**
- * Kafka topic constants
- */
 export const KAFKA_TOPICS = {
   PAYMENT_EVENTS: 'payment.events', // General topic for all payment events
   PAYMENT_COMPLETED: 'payment.completed',

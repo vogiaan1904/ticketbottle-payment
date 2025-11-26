@@ -1,21 +1,11 @@
 import { Kafka, Producer, ProducerRecord, RecordMetadata } from 'kafkajs';
 import { logger } from '../logger';
 
-/**
- * Singleton Kafka producer for Lambda reuse
- * Reuses connection across Lambda invocations
- */
 let producer: Producer | null = null;
 let isConnected = false;
 
-/**
- * Get or create Kafka producer instance
- * @returns Connected Kafka Producer
- */
 export const getKafkaProducer = async (): Promise<Producer> => {
   if (!producer || !isConnected) {
-    logger.info('Initializing Kafka producer');
-
     const brokers = process.env.KAFKA_BROKERS?.split(',').map((b) => b.trim()) || [];
     if (brokers.length === 0) {
       throw new Error('KAFKA_BROKERS environment variable is required');
@@ -51,7 +41,6 @@ export const getKafkaProducer = async (): Promise<Producer> => {
     try {
       await producer.connect();
       isConnected = true;
-      logger.info('Kafka producer connected successfully');
     } catch (error) {
       logger.error('Failed to connect Kafka producer', { error });
       producer = null;
@@ -63,14 +52,6 @@ export const getKafkaProducer = async (): Promise<Producer> => {
   return producer;
 };
 
-/**
- * Publish a message to Kafka with metadata headers
- * @param topic Kafka topic name
- * @param value Message payload
- * @param key Optional partition key (for ordering)
- * @param headers Optional message headers
- * @returns Record metadata with partition and offset
- */
 export const publishToKafka = async <T = any>(
   topic: string,
   value: T,
@@ -100,15 +81,8 @@ export const publishToKafka = async <T = any>(
     ],
   };
 
-  logger.debug('Publishing message to Kafka', { topic, key, headers });
-
   try {
     const metadata = await producer.send(record);
-    logger.info('Message published to Kafka', {
-      topic,
-      partition: metadata[0].partition,
-      offset: metadata[0].baseOffset,
-    });
     return metadata;
   } catch (error) {
     logger.error('Failed to publish message to Kafka', { topic, error });
@@ -116,28 +90,14 @@ export const publishToKafka = async <T = any>(
   }
 };
 
-/**
- * Disconnect Kafka producer (use sparingly in Lambda)
- * Lambda execution context keeps connections warm
- */
 export const disconnectKafka = async (): Promise<void> => {
   if (producer && isConnected) {
-    logger.info('Disconnecting Kafka producer');
     await producer.disconnect();
     producer = null;
     isConnected = false;
   }
 };
 
-/**
- * Publish message with automatic retry on transient failures
- * @param topic Kafka topic
- * @param value Message payload
- * @param key Optional partition key
- * @param headers Optional headers
- * @param maxRetries Maximum number of retries (default: 3)
- * @returns Record metadata
- */
 export const publishWithRetry = async <T = any>(
   topic: string,
   value: T,

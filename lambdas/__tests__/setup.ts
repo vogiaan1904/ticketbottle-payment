@@ -1,8 +1,3 @@
-/**
- * Jest setup file for Lambda tests
- * This file runs before all tests
- */
-
 // Set test environment variables
 process.env.NODE_ENV = 'test';
 process.env.LOG_LEVEL = 'error'; // Reduce noise in test output

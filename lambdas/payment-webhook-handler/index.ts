@@ -1,19 +1,8 @@
-/**
- * Payment Webhook Handler Lambda Entry Point
- * Handles payment callbacks from ZaloPay and PayOS
- */
-
 import { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from 'aws-lambda';
 import { logger } from '@/common/logger';
 import { handleWebhook } from './handlers/webhook.handler';
 import { getPrismaClient } from '@/common/database/prisma';
 
-/**
- * Lambda handler function
- * @param event API Gateway event
- * @param context Lambda context
- * @returns API Gateway response
- */
 export const handler = async (
   event: APIGatewayProxyEvent,
   context: Context,
@@ -34,10 +23,6 @@ export const handler = async (
   try {
     // Process webhook
     const result = await handleWebhook(event);
-
-    logger.info('Webhook processed successfully', {
-      statusCode: result.statusCode,
-    });
 
     return result;
   } catch (error) {
@@ -60,7 +45,7 @@ export const handler = async (
     // Note: In most cases, we want to keep the connection open for reuse
     // Only disconnect if explicitly needed
     if (context.getRemainingTimeInMillis() < 1000) {
-      logger.info('Lambda timeout approaching, disconnecting Prisma');
+      logger.warn('Lambda timeout approaching, disconnecting Prisma');
       await getPrismaClient().$disconnect();
     }
   }

@@ -18,10 +18,6 @@ import {
   ZalopayCallbackResponse,
 } from './zalopay.interface';
 
-/**
- * ZaloPay payment gateway implementation for Lambda
- * Adapted from NestJS service, using plain TypeScript
- */
 export class ZalopayGateway implements PaymentGatewayInterface {
   private readonly ORDER_TIMEOUT_SECONDS = 300; // 5 minutes
   private readonly CREATE_ZALOPAY_PAYMENT_LINK_URL = 'https://sb-openapi.zalopay.vn/v2/create';
@@ -36,25 +32,13 @@ export class ZalopayGateway implements PaymentGatewayInterface {
     this.appID = parseInt(config.paymentProviders.zalopay.appId, 10);
     this.key1 = config.paymentProviders.zalopay.key1;
     this.key2 = config.paymentProviders.zalopay.key2;
-
-    logger.info('ZaloPay gateway initialized', { appID: this.appID });
   }
 
-  /**
-   * Build ZaloPay app_trans_id in format YYMMDD_orderCode
-   * @param orderCode Order code
-   * @returns app_trans_id string
-   */
   private buildZaloPayAppTransId(orderCode: string): string {
     const now = dayjs();
     return `${now.format('YYMMDD')}_${orderCode}`;
   }
 
-  /**
-   * Extract order code from app_trans_id
-   * @param appTransId ZaloPay app_trans_id
-   * @returns Order code
-   */
   private getOrderCodeFromAppTransId(appTransId: string): string {
     const parts = appTransId.split('_');
     if (parts.length !== 2) {
@@ -63,12 +47,6 @@ export class ZalopayGateway implements PaymentGatewayInterface {
     return parts[1];
   }
 
-  /**
-   * Initialize ZaloPay callback response
-   * @param code Return code
-   * @param message Return message
-   * @returns Callback response object
-   */
   private initZaloPayCallbackRes(code: number, message: string): ZalopayCallbackResponse {
     return {
       return_code: code,
@@ -76,11 +54,6 @@ export class ZalopayGateway implements PaymentGatewayInterface {
     };
   }
 
-  /**
-   * Initialize ZaloPay request body with MAC signature
-   * @param data Payment link input
-   * @returns ZaloPay request body
-   */
   private initZaloPayRequestBody(data: CreatePaymentLinkInput): ZaloCreatePaymentUrlRequestBody {
     const now = dayjs();
     const appTransId = this.buildZaloPayAppTransId(data.orderCode);
@@ -137,19 +110,9 @@ export class ZalopayGateway implements PaymentGatewayInterface {
     return body;
   }
 
-  /**
-   * Create ZaloPay payment link
-   * @param input Payment link input data
-   * @returns Payment URL and transaction ID
-   */
   async createPaymentLink(input: CreatePaymentLinkInput): Promise<CreatePaymentLinkOutput> {
     try {
       const body = this.initZaloPayRequestBody(input);
-
-      logger.info('Creating ZaloPay payment link', {
-        orderCode: input.orderCode,
-        amount: input.amount,
-      });
 
       const response = await axios.post<ZaloCreatePaymentUrlResponse>(
         this.CREATE_ZALOPAY_PAYMENT_LINK_URL,
@@ -178,10 +141,6 @@ export class ZalopayGateway implements PaymentGatewayInterface {
         );
       }
 
-      logger.info('ZaloPay payment link created successfully', {
-        transactionId: body.app_trans_id,
-      });
-
       return {
         url: resData.order_url,
         transactionId: body.app_trans_id,
@@ -204,15 +163,8 @@ export class ZalopayGateway implements PaymentGatewayInterface {
     }
   }
 
-  /**
-   * Handle ZaloPay webhook callback
-   * @param callbackBody Callback request body
-   * @returns Callback processing result
-   */
   async handleCallback(callbackBody: ZalopayCallbackBody): Promise<HandleCallbackOutput> {
     try {
-      logger.info('Processing ZaloPay callback');
-
       // Verify MAC signature
       const requestMac = crypto
         .createHmac('sha256', this.key2)
@@ -248,13 +200,6 @@ export class ZalopayGateway implements PaymentGatewayInterface {
 
       const appTransId = transData.app_trans_id;
       const orderCode = this.getOrderCodeFromAppTransId(appTransId);
-
-      logger.info('ZaloPay callback processed successfully', {
-        appTransId,
-        orderCode,
-        amount: transData.amount,
-        zpTransId: transData.zp_trans_id,
-      });
 
       return {
         success: true,

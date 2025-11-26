@@ -1,8 +1,3 @@
-/**
- * Outbox Cleanup Lambda Entry Point
- * Cleans up old published events and monitors failed events
- */
-
 import { EventBridgeEvent, Context } from 'aws-lambda';
 import { logger } from '@/common/logger';
 import { handleScheduledEvent } from './handlers/cleanup.handler';
@@ -26,10 +21,6 @@ export const handler = async (
   try {
     const result = await handleScheduledEvent(event);
 
-    logger.info('Outbox cleanup completed successfully', {
-      statusCode: result.statusCode,
-    });
-
     return result;
   } catch (error) {
     logger.error('Unhandled error in Lambda handler', {
@@ -46,11 +37,10 @@ export const handler = async (
     };
   } finally {
     if (context.getRemainingTimeInMillis() < 1000) {
-      logger.info('Lambda timeout approaching, disconnecting Prisma');
+      logger.warn('Lambda timeout approaching, disconnecting Prisma');
 
       try {
         await getPrismaClient().$disconnect();
-        logger.info('Prisma client disconnected');
       } catch (error) {
         logger.error('Failed to disconnect Prisma client', {
           error: error instanceof Error ? error.message : String(error),

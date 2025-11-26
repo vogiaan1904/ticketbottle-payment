@@ -59,12 +59,6 @@ export const handleWebhook = async (
   const requestId = event.requestContext.requestId;
 
   try {
-    logger.info('Received payment webhook', {
-      requestId,
-      path: event.path,
-      headers: event.headers,
-    });
-
     if (!event.body) {
       throw new ValidationError('Request body is required');
     }
@@ -72,18 +66,10 @@ export const handleWebhook = async (
     const body = JSON.parse(event.body);
 
     const provider = detectProvider(event);
-    logger.info('Detected payment provider', { provider, requestId });
 
     const gateway = getGateway(provider);
 
     const callbackResult = await gateway.handleCallback(body);
-
-    logger.info('Gateway callback processed', {
-      provider,
-      success: callbackResult.success,
-      providerTransactionId: callbackResult.providerTransactionId,
-      requestId,
-    });
 
     if (!callbackResult.success) {
       logger.warn('Callback validation failed', {
@@ -125,8 +111,6 @@ export const handleWebhook = async (
       throw new ValidationError(`Unsupported provider: ${provider}`);
     }
 
-    logger.info('Extracted order code', { orderCode, provider, requestId });
-
     const prisma = getPrismaClient();
 
     await prisma.$transaction(async (tx: any) => {
@@ -158,12 +142,6 @@ export const handleWebhook = async (
         },
       });
 
-      logger.info('Payment status updated to completed', {
-        paymentId: payment.id,
-        orderCode,
-        requestId,
-      });
-
       const eventPayload: PaymentCompletedEvent = {
         payment_id: payment.id,
         order_code: payment.orderCode,
@@ -185,10 +163,8 @@ export const handleWebhook = async (
         },
       });
 
-      logger.info('Payment completed event stored in outbox', {
-        paymentId: payment.id,
+      logger.info('Payment completed', {
         orderCode,
-        eventType: EventType.PAYMENT_COMPLETED,
         requestId,
       });
     });

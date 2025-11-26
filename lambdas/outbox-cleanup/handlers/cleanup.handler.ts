@@ -1,8 +1,3 @@
-/**
- * Outbox Cleanup Handler
- * Deletes old published events and monitors failed events
- */
-
 import { EventBridgeEvent } from 'aws-lambda';
 import { getPrismaClient } from '@/common/database/prisma';
 import { logger } from '@/common/logger';
@@ -15,11 +10,6 @@ const deleteOldEvents = async (): Promise<number> => {
   const retentionDays = config.outbox.retentionDays;
   const cutoffDate = new Date();
   cutoffDate.setDate(cutoffDate.getDate() - retentionDays);
-
-  logger.info('Deleting old outbox events', {
-    retentionDays,
-    cutoffDate: cutoffDate.toISOString(),
-  });
 
   try {
     const result = await prisma.outbox.deleteMany({
@@ -62,8 +52,6 @@ const findFailedEvents = async (): Promise<
 
   const maxRetries = config.outbox.maxRetries;
 
-  logger.info('Finding failed outbox events', { maxRetries });
-
   try {
     const failedEvents = await prisma.outbox.findMany({
       where: {
@@ -84,10 +72,6 @@ const findFailedEvents = async (): Promise<
       orderBy: {
         createdAt: 'asc',
       },
-    });
-
-    logger.info('Found failed outbox events', {
-      count: failedEvents.length,
     });
 
     return failedEvents;
@@ -112,9 +96,14 @@ const monitorFailedEvents = async (
   }>,
 ): Promise<void> => {
   if (failedEvents.length === 0) {
-    logger.info('No failed events to monitor');
     return;
   }
+
+  // TODOs in production:
+  // 1. Send alerts to CloudWatch Alarms
+  // 2. Send notifications to SNS topics
+  // 3. Create tickets in issue tracking system
+  // 4. Send to dead letter queue for manual intervention
 
   logger.error('Outbox events exceeded retry limit', {
     count: failedEvents.length,
@@ -127,12 +116,6 @@ const monitorFailedEvents = async (
       age: Math.floor((Date.now() - e.createdAt.getTime()) / 1000 / 60), // Age in minutes
     })),
   });
-
-  // TODOs in production:
-  // 1. Send alerts to CloudWatch Alarms
-  // 2. Send notifications to SNS topics
-  // 3. Create tickets in issue tracking system
-  // 4. Send to dead letter queue for manual intervention
 
   logger.warn(
     `ALERT: ${failedEvents.length} outbox events failed to publish after ${failedEvents[0]?.retryCount} retries. Manual intervention may be required.`,
@@ -220,8 +203,6 @@ export const performCleanup = async (): Promise<{
     oldestPendingAge: number | null;
   };
 }> => {
-  logger.info('Starting outbox cleanup');
-
   try {
     // Delete old published events
     const deleted = await deleteOldEvents();

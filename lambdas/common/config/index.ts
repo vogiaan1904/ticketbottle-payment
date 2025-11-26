@@ -1,8 +1,3 @@
-/**
- * Configuration module for Lambda functions
- * Centralizes all environment variable access
- */
-
 export interface DatabaseConfig {
   url: string;
 }
@@ -47,13 +42,6 @@ export interface AppConfig {
   paymentProviders: PaymentProviderConfig;
 }
 
-/**
- * Get required environment variable
- * @param key Environment variable name
- * @param defaultValue Optional default value
- * @returns Environment variable value
- * @throws Error if required variable is missing
- */
 const getEnv = (key: string, defaultValue?: string): string => {
   const value = process.env[key] || defaultValue;
   if (value === undefined) {
@@ -62,22 +50,10 @@ const getEnv = (key: string, defaultValue?: string): string => {
   return value;
 };
 
-/**
- * Get optional environment variable
- * @param key Environment variable name
- * @param defaultValue Default value if not set
- * @returns Environment variable value or default
- */
 const getOptionalEnv = (key: string, defaultValue: string = ''): string => {
   return process.env[key] || defaultValue;
 };
 
-/**
- * Parse integer from environment variable
- * @param key Environment variable name
- * @param defaultValue Default value
- * @returns Parsed integer
- */
 const getIntEnv = (key: string, defaultValue: number): number => {
   const value = process.env[key];
   if (!value) return defaultValue;
@@ -85,22 +61,12 @@ const getIntEnv = (key: string, defaultValue: number): number => {
   return isNaN(parsed) ? defaultValue : parsed;
 };
 
-/**
- * Parse boolean from environment variable
- * @param key Environment variable name
- * @param defaultValue Default value
- * @returns Parsed boolean
- */
 const getBoolEnv = (key: string, defaultValue: boolean): boolean => {
   const value = process.env[key];
   if (!value) return defaultValue;
   return value.toLowerCase() === 'true';
 };
 
-/**
- * Load and validate configuration
- * @returns Application configuration
- */
 export const loadConfig = (): AppConfig => {
   return {
     environment: getOptionalEnv('NODE_ENV', 'development'),
@@ -143,15 +109,8 @@ export const loadConfig = (): AppConfig => {
   };
 };
 
-/**
- * Singleton config instance
- */
 let config: AppConfig | null = null;
 
-/**
- * Get application configuration
- * @returns Application configuration
- */
 export const getConfig = (): AppConfig => {
   if (!config) {
     config = loadConfig();
@@ -159,9 +118,6 @@ export const getConfig = (): AppConfig => {
   return config;
 };
 
-/**
- * Reset config (useful for testing)
- */
 export const resetConfig = (): void => {
   config = null;
 };

@@ -1,10 +1,5 @@
 import { APIGatewayProxyEvent, Context, EventBridgeEvent } from 'aws-lambda';
 
-/**
- * Create a mock API Gateway event for testing
- * @param overrides Partial event properties to override
- * @returns Mock API Gateway proxy event
- */
 export const createMockAPIGatewayEvent = (
   overrides: Partial<APIGatewayProxyEvent> = {}
 ): APIGatewayProxyEvent => {
@@ -54,11 +49,6 @@ export const createMockAPIGatewayEvent = (
   };
 };
 
-/**
- * Create a mock Lambda context for testing
- * @param overrides Partial context properties to override
- * @returns Mock Lambda context
- */
 export const createMockContext = (overrides: Partial<Context> = {}): Context => {
   return {
     callbackWaitsForEmptyEventLoop: false,
@@ -77,11 +67,6 @@ export const createMockContext = (overrides: Partial<Context> = {}): Context => 
   };
 };
 
-/**
- * Create a mock EventBridge event for testing
- * @param overrides Partial event properties to override
- * @returns Mock EventBridge event
- */
 export const createMockEventBridgeEvent = <T = any>(
   overrides: Partial<EventBridgeEvent<string, T>> = {}
 ): EventBridgeEvent<string, T> => {
@@ -99,9 +84,6 @@ export const createMockEventBridgeEvent = <T = any>(
   };
 };
 
-/**
- * Mock Prisma client for testing
- */
 export const createMockPrismaClient = () => {
   return {
     payment: {
@@ -132,9 +114,6 @@ export const createMockPrismaClient = () => {
   };
 };
 
-/**
- * Mock Kafka producer for testing
- */
 export const createMockKafkaProducer = () => {
   return {
     connect: jest.fn().mockResolvedValue(undefined),

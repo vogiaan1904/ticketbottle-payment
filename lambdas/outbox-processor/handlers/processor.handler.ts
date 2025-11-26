@@ -21,12 +21,6 @@ const getTopicForEventType = (eventType: EventType): string => {
 
 const processOutboxEvent = async (event: OutboxEntity): Promise<boolean> => {
   try {
-    logger.info('Processing outbox event', {
-      id: event.id,
-      eventType: event.eventType,
-      aggregateId: event.aggregateId,
-    });
-
     const topic = getTopicForEventType(event.eventType as EventType);
 
     const metadata = await publishWithRetry(
@@ -40,12 +34,10 @@ const processOutboxEvent = async (event: OutboxEntity): Promise<boolean> => {
       },
     );
 
-    logger.info('Outbox event published to Kafka', {
+    logger.debug('Event published to Kafka', {
       id: event.id,
-      eventType: event.eventType,
       topic,
       partition: metadata[0].partition,
-      offset: metadata[0].offset,
     });
 
     return true;
@@ -74,8 +66,6 @@ const updateOutboxEvent = async (
         publishedAt: new Date(),
       },
     });
-
-    logger.debug('Outbox event marked as published', { eventId });
   } else {
     await prisma.outbox.update({
       where: { id: eventId },
@@ -84,8 +74,6 @@ const updateOutboxEvent = async (
         lastError: error || 'Unknown error',
       },
     });
-
-    logger.debug('Outbox event retry count incremented', { eventId });
   }
 };
 
@@ -99,11 +87,6 @@ export const processOutbox = async (): Promise<{
 
   const batchSize = config.outbox.batchSize;
   const maxRetries = config.outbox.maxRetries;
-
-  logger.info('Starting outbox processing', {
-    batchSize,
-    maxRetries,
-  });
 
   try {
     await getKafkaProducer();
@@ -119,12 +102,7 @@ export const processOutbox = async (): Promise<{
       take: batchSize,
     });
 
-    logger.info('Fetched pending outbox events', {
-      count: pendingEvents.length,
-    });
-
     if (pendingEvents.length === 0) {
-      logger.info('No pending outbox events to process');
       return {
         processed: 0,
         succeeded: 0,

@@ -1,9 +1,5 @@
 import winston from 'winston';
 
-/**
- * Configure Winston logger for Lambda
- * CloudWatch automatically captures stdout/stderr
- */
 export const logger = winston.createLogger({
   level: process.env.LOG_LEVEL || 'info',
   format: winston.format.combine(
@@ -28,12 +24,6 @@ export const logger = winston.createLogger({
   ],
 });
 
-/**
- * Log an error with structured data
- * @param message Error message
- * @param error Error object
- * @param meta Additional metadata
- */
 export const logError = (message: string, error: Error, meta?: Record<string, any>): void => {
   logger.error(message, {
     error: {
@@ -45,29 +35,14 @@ export const logError = (message: string, error: Error, meta?: Record<string, an
   });
 };
 
-/**
- * Log a warning with structured data
- * @param message Warning message
- * @param meta Additional metadata
- */
 export const logWarn = (message: string, meta?: Record<string, any>): void => {
   logger.warn(message, meta);
 };
 
-/**
- * Log info with structured data
- * @param message Info message
- * @param meta Additional metadata
- */
 export const logInfo = (message: string, meta?: Record<string, any>): void => {
   logger.info(message, meta);
 };
 
-/**
- * Log debug information
- * @param message Debug message
- * @param meta Additional metadata
- */
 export const logDebug = (message: string, meta?: Record<string, any>): void => {
   logger.debug(message, meta);
 };
