@@ -28,4 +28,4 @@ import { SharedModule } from './shared.module';
     },
   ],
 })
-export class GrpcAppModule {}
+export class AppModule {}
