@@ -10,7 +10,7 @@ import { PaymentModule } from './modules/payment/payment.module';
 import { SharedModule } from './shared.module';
 
 @Module({
-  imports: [SharedModule, PaymentModule, OutboxModule.forRoot({ enablePublisher: true })],
+  imports: [SharedModule, PaymentModule, OutboxModule.forRoot()],
   controllers: [AppController],
   providers: [
     AppService,

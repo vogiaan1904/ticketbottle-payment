@@ -10,7 +10,7 @@ import { GrpcPaymentController } from './controllers/grpc/payment.controller';
 import { OutboxModule } from '../outbox/outbox.module';
 
 @Module({
-  imports: [PrismaModule, HttpModule, OutboxModule.forRoot({ enablePublisher: false })],
+  imports: [PrismaModule, HttpModule, OutboxModule.forRoot()],
   controllers: [PaymentController, GrpcPaymentController],
   providers: [PaymentService, PaymentGatewayFactory, PaymentRepository, ZalopayGateWay],
 })
