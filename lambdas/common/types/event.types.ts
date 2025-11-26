@@ -1,6 +1,7 @@
 export enum EventType {
   PAYMENT_COMPLETED = 'PAYMENT_COMPLETED',
   PAYMENT_FAILED = 'PAYMENT_FAILED',
+  PAYMENT_CANCELLED = 'PAYMENT_CANCELLED',
 }
 
 export interface PaymentCompletedEvent {

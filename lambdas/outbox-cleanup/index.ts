@@ -8,17 +8,10 @@ import { logger } from '@/common/logger';
 import { handleScheduledEvent } from './handlers/cleanup.handler';
 import { getPrismaClient } from '@/common/database/prisma';
 
-/**
- * Lambda handler function
- * @param event EventBridge scheduled event
- * @param context Lambda context
- * @returns Cleanup result
- */
 export const handler = async (
   event: EventBridgeEvent<string, any>,
-  context: Context
+  context: Context,
 ): Promise<{ statusCode: number; body: string }> => {
-  // Set request ID from Lambda context
   logger.defaultMeta = {
     ...logger.defaultMeta,
     requestId: context.awsRequestId,
@@ -31,7 +24,6 @@ export const handler = async (
   });
 
   try {
-    // Perform cleanup operations
     const result = await handleScheduledEvent(event);
 
     logger.info('Outbox cleanup completed successfully', {
@@ -45,7 +37,6 @@ export const handler = async (
       stack: error instanceof Error ? error.stack : undefined,
     });
 
-    // Return error response
     return {
       statusCode: 500,
       body: JSON.stringify({
@@ -54,7 +45,6 @@ export const handler = async (
       }),
     };
   } finally {
-    // Clean up Prisma connection if Lambda is shutting down
     if (context.getRemainingTimeInMillis() < 1000) {
       logger.info('Lambda timeout approaching, disconnecting Prisma');
 

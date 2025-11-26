@@ -8,10 +8,6 @@ import { getPrismaClient } from '@/common/database/prisma';
 import { logger } from '@/common/logger';
 import { getConfig } from '@/common/config';
 
-/**
- * Delete old published events based on retention policy
- * @returns Number of deleted events
- */
 const deleteOldEvents = async (): Promise<number> => {
   const config = getConfig();
   const prisma = getPrismaClient();
@@ -26,7 +22,7 @@ const deleteOldEvents = async (): Promise<number> => {
   });
 
   try {
-    const result = await prisma.outboxEvent.deleteMany({
+    const result = await prisma.outbox.deleteMany({
       where: {
         publishedAt: {
           not: null,
@@ -50,10 +46,6 @@ const deleteOldEvents = async (): Promise<number> => {
   }
 };
 
-/**
- * Find events that exceeded retry limit
- * @returns Failed events details
- */
 const findFailedEvents = async (): Promise<
   Array<{
     id: string;
@@ -73,7 +65,7 @@ const findFailedEvents = async (): Promise<
   logger.info('Finding failed outbox events', { maxRetries });
 
   try {
-    const failedEvents = await prisma.outboxEvent.findMany({
+    const failedEvents = await prisma.outbox.findMany({
       where: {
         publishedAt: null,
         retryCount: {
@@ -108,10 +100,6 @@ const findFailedEvents = async (): Promise<
   }
 };
 
-/**
- * Monitor and alert on failed events
- * @param failedEvents List of failed events
- */
 const monitorFailedEvents = async (
   failedEvents: Array<{
     id: string;
@@ -121,14 +109,13 @@ const monitorFailedEvents = async (
     retryCount: number;
     lastError: string | null;
     createdAt: Date;
-  }>
+  }>,
 ): Promise<void> => {
   if (failedEvents.length === 0) {
     logger.info('No failed events to monitor');
     return;
   }
 
-  // Log failed events for monitoring and alerting
   logger.error('Outbox events exceeded retry limit', {
     count: failedEvents.length,
     events: failedEvents.map((e) => ({
@@ -141,21 +128,17 @@ const monitorFailedEvents = async (
     })),
   });
 
-  // In production, you would:
+  // TODOs in production:
   // 1. Send alerts to CloudWatch Alarms
   // 2. Send notifications to SNS topics
   // 3. Create tickets in issue tracking system
   // 4. Send to dead letter queue for manual intervention
 
   logger.warn(
-    `ALERT: ${failedEvents.length} outbox events failed to publish after ${failedEvents[0]?.retryCount} retries. Manual intervention may be required.`
+    `ALERT: ${failedEvents.length} outbox events failed to publish after ${failedEvents[0]?.retryCount} retries. Manual intervention may be required.`,
   );
 };
 
-/**
- * Get cleanup statistics
- * @returns Cleanup statistics
- */
 const getCleanupStats = async (): Promise<{
   totalEvents: number;
   publishedEvents: number;
@@ -168,17 +151,17 @@ const getCleanupStats = async (): Promise<{
 
   try {
     // Get total events count
-    const totalEvents = await prisma.outboxEvent.count();
+    const totalEvents = await prisma.outbox.count();
 
     // Get published events count
-    const publishedEvents = await prisma.outboxEvent.count({
+    const publishedEvents = await prisma.outbox.count({
       where: {
         publishedAt: { not: null },
       },
     });
 
     // Get pending events count
-    const pendingEvents = await prisma.outboxEvent.count({
+    const pendingEvents = await prisma.outbox.count({
       where: {
         publishedAt: null,
         retryCount: { lt: config.outbox.maxRetries },
@@ -186,7 +169,7 @@ const getCleanupStats = async (): Promise<{
     });
 
     // Get failed events count
-    const failedEvents = await prisma.outboxEvent.count({
+    const failedEvents = await prisma.outbox.count({
       where: {
         publishedAt: null,
         retryCount: { gte: config.outbox.maxRetries },
@@ -194,7 +177,7 @@ const getCleanupStats = async (): Promise<{
     });
 
     // Get oldest pending event
-    const oldestPending = await prisma.outboxEvent.findFirst({
+    const oldestPending = await prisma.outbox.findFirst({
       where: {
         publishedAt: null,
       },
@@ -226,10 +209,6 @@ const getCleanupStats = async (): Promise<{
   }
 };
 
-/**
- * Perform outbox cleanup operations
- * @returns Cleanup result
- */
 export const performCleanup = async (): Promise<{
   deleted: number;
   failedCount: number;
@@ -276,13 +255,8 @@ export const performCleanup = async (): Promise<{
   }
 };
 
-/**
- * Handle EventBridge scheduled event
- * @param event EventBridge event
- * @returns Cleanup result
- */
 export const handleScheduledEvent = async (
-  event: EventBridgeEvent<string, any>
+  event: EventBridgeEvent<string, any>,
 ): Promise<{ statusCode: number; body: string }> => {
   logger.info('Outbox cleanup triggered by EventBridge', {
     source: event.source,

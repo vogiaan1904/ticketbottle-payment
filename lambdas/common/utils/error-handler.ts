@@ -1,9 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { logger } from '../logger';
 
-/**
- * Standard error response structure
- */
 export interface ErrorResponse {
   error: string;
   message: string;
@@ -11,19 +8,11 @@ export interface ErrorResponse {
   requestId?: string;
 }
 
-/**
- * Create API Gateway error response
- * @param statusCode HTTP status code
- * @param error Error name
- * @param message Error message
- * @param details Additional error details
- * @returns API Gateway proxy result
- */
 export const createErrorResponse = (
   statusCode: number,
   error: string,
   message: string,
-  details?: any
+  details?: any,
 ): APIGatewayProxyResult => {
   const response: ErrorResponse = {
     error,
@@ -40,13 +29,10 @@ export const createErrorResponse = (
   };
 };
 
-/**
- * Handle Lambda function errors with logging
- * @param error Error object
- * @param context Additional context
- * @returns API Gateway error response
- */
-export const handleError = (error: unknown, context?: Record<string, any>): APIGatewayProxyResult => {
+export const handleError = (
+  error: unknown,
+  context?: Record<string, any>,
+): APIGatewayProxyResult => {
   if (error instanceof Error) {
     logger.error('Lambda execution error', {
       name: error.name,
@@ -55,33 +41,21 @@ export const handleError = (error: unknown, context?: Record<string, any>): APIG
       ...context,
     });
 
-    // Determine status code based on error type
     const statusCode = getStatusCodeForError(error);
 
     return createErrorResponse(
       statusCode,
       error.name,
       error.message,
-      process.env.NODE_ENV === 'development' ? { stack: error.stack } : undefined
+      process.env.NODE_ENV === 'development' ? { stack: error.stack } : undefined,
     );
   }
 
-  // Unknown error type
   logger.error('Unknown error occurred', { error, ...context });
 
-  return createErrorResponse(
-    500,
-    'InternalServerError',
-    'An unexpected error occurred',
-    undefined
-  );
+  return createErrorResponse(500, 'InternalServerError', 'An unexpected error occurred', undefined);
 };
 
-/**
- * Determine HTTP status code based on error type
- * @param error Error object
- * @returns HTTP status code
- */
 const getStatusCodeForError = (error: Error): number => {
   const errorName = error.name.toLowerCase();
 
@@ -95,11 +69,11 @@ const getStatusCodeForError = (error: Error): number => {
   return 500;
 };
 
-/**
- * Custom error classes
- */
 export class ValidationError extends Error {
-  constructor(message: string, public details?: any) {
+  constructor(
+    message: string,
+    public details?: any,
+  ) {
     super(message);
     this.name = 'ValidationError';
   }
@@ -120,7 +94,11 @@ export class UnauthorizedError extends Error {
 }
 
 export class PaymentProviderError extends Error {
-  constructor(message: string, public provider: string, public details?: any) {
+  constructor(
+    message: string,
+    public provider: string,
+    public details?: any,
+  ) {
     super(message);
     this.name = 'PaymentProviderError';
   }

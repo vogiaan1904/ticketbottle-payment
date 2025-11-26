@@ -5,7 +5,7 @@
   "private": true,
   "main": "index.js",
   "scripts": {
-    "generate": "prisma generate --schema=../prisma/schema.prisma",
+    "prisma:gen": "prisma generate",
     "build": "tsc --build",
     "build:watch": "tsc --build --watch",
     "build:clean": "tsc --build --clean",

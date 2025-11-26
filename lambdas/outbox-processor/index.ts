@@ -7,7 +7,7 @@ import { EventBridgeEvent, Context } from 'aws-lambda';
 import { logger } from '@/common/logger';
 import { handleScheduledEvent } from './handlers/processor.handler';
 import { getPrismaClient } from '@/common/database/prisma';
-import { getKafkaProducer } from '@/common/kafka/producer';
+import { disconnectKafka } from '@/common/kafka/producer';
 
 /**
  * Lambda handler function
@@ -17,7 +17,7 @@ import { getKafkaProducer } from '@/common/kafka/producer';
  */
 export const handler = async (
   event: EventBridgeEvent<string, any>,
-  context: Context
+  context: Context,
 ): Promise<{ statusCode: number; body: string }> => {
   // Set request ID from Lambda context
   logger.defaultMeta = {
@@ -60,7 +60,7 @@ export const handler = async (
       logger.info('Lambda timeout approaching, disconnecting clients');
 
       try {
-        await getKafkaProducer().disconnect();
+        await disconnectKafka();
         logger.info('Kafka producer disconnected');
       } catch (error) {
         logger.error('Failed to disconnect Kafka producer', {

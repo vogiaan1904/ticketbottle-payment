@@ -1,22 +1,12 @@
-/**
- * Outbox Processor Handler
- * Polls outbox events and publishes them to Kafka
- */
-
-import { EventBridgeEvent } from 'aws-lambda';
+import { getConfig } from '@/common/config';
+import { KAFKA_TOPICS } from '@/common/constants/kafka-topics';
 import { getPrismaClient } from '@/common/database/prisma';
 import { getKafkaProducer, publishWithRetry } from '@/common/kafka/producer';
 import { logger } from '@/common/logger';
-import { getConfig } from '@/common/config';
-import { OutboxEntity } from '@/common/types/outbox.types';
 import { EventType } from '@/common/types/event.types';
-import { KAFKA_TOPICS } from '@/common/constants/kafka-topics';
+import { OutboxEntity } from '@/common/types/outbox.types';
+import { EventBridgeEvent } from 'aws-lambda';
 
-/**
- * Get Kafka topic for event type
- * @param eventType Event type
- * @returns Kafka topic name
- */
 const getTopicForEventType = (eventType: EventType): string => {
   switch (eventType) {
     case EventType.PAYMENT_COMPLETED:
@@ -29,11 +19,6 @@ const getTopicForEventType = (eventType: EventType): string => {
   }
 };
 
-/**
- * Process a single outbox event
- * @param event Outbox event to process
- * @returns Success status
- */
 const processOutboxEvent = async (event: OutboxEntity): Promise<boolean> => {
   try {
     logger.info('Processing outbox event', {
@@ -42,10 +27,8 @@ const processOutboxEvent = async (event: OutboxEntity): Promise<boolean> => {
       aggregateId: event.aggregateId,
     });
 
-    // Get Kafka topic
     const topic = getTopicForEventType(event.eventType as EventType);
 
-    // Publish event to Kafka with retry
     const metadata = await publishWithRetry(
       topic,
       event.payload,
@@ -54,7 +37,7 @@ const processOutboxEvent = async (event: OutboxEntity): Promise<boolean> => {
         eventType: event.eventType,
         aggregateType: event.aggregateType,
         eventId: event.id,
-      }
+      },
     );
 
     logger.info('Outbox event published to Kafka', {
@@ -77,36 +60,28 @@ const processOutboxEvent = async (event: OutboxEntity): Promise<boolean> => {
   }
 };
 
-/**
- * Update outbox event status after processing
- * @param eventId Event ID
- * @param success Whether processing succeeded
- * @param error Optional error message
- */
 const updateOutboxEvent = async (
   eventId: string,
   success: boolean,
-  error?: string
+  error?: string,
 ): Promise<void> => {
   const prisma = getPrismaClient();
 
   if (success) {
-    await prisma.outboxEvent.update({
+    await prisma.outbox.update({
       where: { id: eventId },
       data: {
         publishedAt: new Date(),
-        updatedAt: new Date(),
       },
     });
 
     logger.debug('Outbox event marked as published', { eventId });
   } else {
-    await prisma.outboxEvent.update({
+    await prisma.outbox.update({
       where: { id: eventId },
       data: {
         retryCount: { increment: 1 },
         lastError: error || 'Unknown error',
-        updatedAt: new Date(),
       },
     });
 
@@ -114,10 +89,6 @@ const updateOutboxEvent = async (
   }
 };
 
-/**
- * Process outbox events in batch
- * @returns Processing result
- */
 export const processOutbox = async (): Promise<{
   processed: number;
   succeeded: number;
@@ -135,13 +106,9 @@ export const processOutbox = async (): Promise<{
   });
 
   try {
-    // Connect Kafka producer if not already connected
-    const producer = getKafkaProducer();
-    await producer.connect();
+    await getKafkaProducer();
 
-    // Fetch pending events from outbox
-    // Only fetch events that haven't been published and haven't exceeded retry limit
-    const pendingEvents = await prisma.outboxEvent.findMany({
+    const pendingEvents = await prisma.outbox.findMany({
       where: {
         publishedAt: null,
         retryCount: { lt: maxRetries },
@@ -165,7 +132,6 @@ export const processOutbox = async (): Promise<{
       };
     }
 
-    // Process events sequentially to maintain order within aggregates
     let succeeded = 0;
     let failed = 0;
 
@@ -176,7 +142,7 @@ export const processOutbox = async (): Promise<{
         await updateOutboxEvent(
           event.id,
           success,
-          success ? undefined : 'Failed to publish to Kafka'
+          success ? undefined : 'Failed to publish to Kafka',
         );
 
         if (success) {
@@ -213,13 +179,8 @@ export const processOutbox = async (): Promise<{
   }
 };
 
-/**
- * Handle EventBridge scheduled event
- * @param event EventBridge event
- * @returns Processing result
- */
 export const handleScheduledEvent = async (
-  event: EventBridgeEvent<string, any>
+  event: EventBridgeEvent<string, any>,
 ): Promise<{ statusCode: number; body: string }> => {
   logger.info('Outbox processor triggered by EventBridge', {
     source: event.source,

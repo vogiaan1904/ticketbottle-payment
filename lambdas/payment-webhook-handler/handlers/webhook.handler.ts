@@ -1,12 +1,13 @@
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPrismaClient } from '@/common/database/prisma';
 import { logger } from '@/common/logger';
-import { handleError, ValidationError, PaymentProviderError } from '@/common/utils/error-handler';
-import { ZalopayGateway } from '../gateways/zalopay/zalopay.gateway';
-import { PayOSGateway } from '../gateways/payos/payos.gateway';
+import { EventType, PaymentCompletedEvent } from '@/common/types/event.types';
+import { PaymentProvider } from '@/common/types/payment.types';
+import { handleError, PaymentProviderError, ValidationError } from '@/common/utils/error-handler';
+import { PaymentStatus } from '@prisma/client';
+import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { PaymentGatewayInterface } from '../gateways/gateway.interface';
-import { PaymentStatus, PaymentProvider } from '@/common/types/payment.types';
-import { EventType, PaymentCompletedEvent, PaymentFailedEvent } from '@/common/types/event.types';
+import { PayOSGateway } from '../gateways/payos/payos.gateway';
+import { ZalopayGateway } from '../gateways/zalopay/zalopay.gateway';
 
 const detectProvider = (event: APIGatewayProxyEvent): PaymentProvider => {
   const path = event.path || '';
@@ -173,7 +174,7 @@ export const handleWebhook = async (
         completed_at: (payment.completedAt || new Date()).toISOString(),
       };
 
-      await tx.outboxEvent.create({
+      await tx.outbox.create({
         data: {
           aggregateId: payment.id,
           aggregateType: 'payment',
