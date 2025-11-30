@@ -16,10 +16,10 @@
     "sourceMap": true,
     "composite": true,
     "baseUrl": ".",
+    "types": ["node", "jest", "@types/aws-lambda"],
     "paths": {
       "@/common/*": ["./common/*"]
-    },
-    "types": ["node", "jest", "@types/aws-lambda"]
+    }
   },
   "files": [],
   "references": [

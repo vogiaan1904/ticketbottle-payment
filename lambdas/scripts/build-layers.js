@@ -40,14 +40,14 @@ function execCommand(command, cwd = ROOT_DIR) {
 
 function cleanDirectory(dir) {
   if (fs.existsSync(dir)) {
-    log(`Cleaning directory: ${dir}`, 'yellow');
+    log(`Cleaning: ${path.basename(dir)}`, 'yellow');
     fs.rmSync(dir, { recursive: true, force: true });
   }
   fs.mkdirSync(dir, { recursive: true });
 }
 
 function copyDirectory(src, dest) {
-  log(`Copying ${src} to ${dest}`, 'blue');
+  log(`Copying ${path.basename(src)}`, 'blue');
   fs.mkdirSync(dest, { recursive: true });
 
   const entries = fs.readdirSync(src, { withFileTypes: true });
@@ -65,13 +65,13 @@ function copyDirectory(src, dest) {
 }
 
 function buildDependenciesLayer() {
-  log('\n=== Building Dependencies Layer ===', 'green');
+  log('\nBuilding dependencies layer', 'green');
 
   const layerDir = path.join(DEPENDENCIES_LAYER_DIR, 'nodejs');
   cleanDirectory(layerDir);
 
   // Copy package.json and package-lock.json
-  log('Copying package files...', 'blue');
+  log('Copying package files', 'blue');
   fs.copyFileSync(
     path.join(ROOT_DIR, 'package.json'),
     path.join(layerDir, 'package.json')
@@ -85,11 +85,11 @@ function buildDependenciesLayer() {
   }
 
   // Install production dependencies
-  log('Installing production dependencies...', 'blue');
+  log('Installing production dependencies', 'blue');
   execCommand('npm ci --omit=dev --ignore-scripts', layerDir);
 
   // Generate Prisma Client
-  log('Generating Prisma Client...', 'blue');
+  log('Generating Prisma Client', 'blue');
   const schemaPath = path.join(ROOT_DIR, '..', 'prisma', 'schema.prisma');
   if (fs.existsSync(schemaPath)) {
     // Copy schema to layer directory
@@ -103,9 +103,14 @@ function buildDependenciesLayer() {
   }
 
   // Remove unnecessary files to reduce layer size
-  log('Cleaning up unnecessary files...', 'blue');
+  log('Cleaning up unnecessary files', 'blue');
   const unnecessaryPaths = [
     'node_modules/@prisma/engines',
+    'node_modules/prisma', // CLI not needed at runtime
+    'node_modules/typescript', // Dev dependency
+    'node_modules/effect', // Large dependency not needed at runtime
+    'node_modules/fast-check', // Test dependency
+    'node_modules/@types', // Type definitions not needed at runtime
     'node_modules/.bin',
     'node_modules/.cache',
     'prisma', // Remove schema after generation
@@ -114,7 +119,62 @@ function buildDependenciesLayer() {
   unnecessaryPaths.forEach((p) => {
     const fullPath = path.join(layerDir, p);
     if (fs.existsSync(fullPath)) {
+      log(`  Removing: ${p}`, 'blue');
       fs.rmSync(fullPath, { recursive: true, force: true });
+    }
+  });
+
+  // Remove darwin engine files (not needed in Lambda)
+  log('Removing darwin engine binaries', 'blue');
+  const prismaClientPath = path.join(layerDir, 'node_modules/.prisma/client');
+  if (fs.existsSync(prismaClientPath)) {
+    const files = fs.readdirSync(prismaClientPath);
+    const darwinFiles = files.filter(f => f.includes('darwin'));
+    darwinFiles.forEach(f => {
+      const filePath = path.join(prismaClientPath, f);
+      log(`  Removing: ${f}`, 'blue');
+      fs.rmSync(filePath, { force: true });
+    });
+  }
+
+  // Remove unnecessary Prisma WASM files for other databases (keep only PostgreSQL)
+  log('Removing unnecessary database engine files', 'blue');
+  const prismaRuntimePath = path.join(layerDir, 'node_modules/@prisma/client/runtime');
+  if (fs.existsSync(prismaRuntimePath)) {
+    const runtimeFiles = fs.readdirSync(prismaRuntimePath);
+    // Keep only postgresql, remove mysql, sqlite, sqlserver, cockroachdb
+    const unnecessaryEngines = runtimeFiles.filter(f => 
+      (f.includes('query_engine') || f.includes('query_compiler')) &&
+      (f.includes('mysql') || f.includes('sqlite') || f.includes('sqlserver') || f.includes('cockroachdb'))
+    );
+    
+    unnecessaryEngines.forEach(f => {
+      const filePath = path.join(prismaRuntimePath, f);
+      log(`  Removing: ${f}`, 'blue');
+      fs.rmSync(filePath, { force: true });
+    });
+    
+    log(`  Removed ${unnecessaryEngines.length} unnecessary engine files`, 'green');
+  }
+
+  // Remove unnecessary dayjs locales (keep only en)
+  log('Removing unnecessary locale files', 'blue');
+  const dayjsLocalePath = path.join(layerDir, 'node_modules/dayjs/locale');
+  const dayjsEsmLocalePath = path.join(layerDir, 'node_modules/dayjs/esm/locale');
+  
+  [dayjsLocalePath, dayjsEsmLocalePath].forEach(localePath => {
+    if (fs.existsSync(localePath)) {
+      const localeFiles = fs.readdirSync(localePath);
+      const unnecessaryLocales = localeFiles.filter(f => 
+        f.endsWith('.js') && !f.startsWith('en') && f !== 'index.js' && f !== 'index.d.ts' && f !== 'types.d.ts'
+      );
+      
+      unnecessaryLocales.forEach(f => {
+        const filePath = path.join(localePath, f);
+        fs.rmSync(filePath, { force: true });
+      });
+      
+      log(`  Removed ${unnecessaryLocales.length} locale files from ${path.basename(localePath)}`, 'green');
     }
   });
 
@@ -124,21 +184,28 @@ function buildDependenciesLayer() {
     fs.unlinkSync(path.join(layerDir, 'package-lock.json'));
   }
 
-  log('Dependencies layer built successfully!', 'green');
+  log('Dependencies layer completed', 'green');
 }
 
 function buildCommonLayer() {
-  log('\n=== Building Common Layer ===', 'green');
+  log('\nBuilding common layer', 'green');
 
   const layerDir = path.join(COMMON_LAYER_DIR, 'nodejs');
   cleanDirectory(layerDir);
 
   // Compile TypeScript common code
-  log('Compiling common TypeScript code...', 'blue');
+  log('Compiling common code', 'blue');
   execCommand('npx tsc -p common/tsconfig.json', ROOT_DIR);
 
-  // Copy compiled common code to layer
+  // Transform path aliases in common code using sed
+  log('Transforming path aliases', 'blue');
   const commonDistDir = path.join(ROOT_DIR, 'common', 'dist');
+  execCommand(
+    `find ${commonDistDir} -name "*.js" -type f -exec sed -i '' 's|@/common/|/opt/nodejs/common/|g' {} +`,
+    ROOT_DIR
+  );
+
+  // Copy compiled common code to layer
   if (fs.existsSync(commonDistDir)) {
     const commonLayerDir = path.join(layerDir, 'common');
     copyDirectory(commonDistDir, commonLayerDir);
@@ -148,11 +215,11 @@ function buildCommonLayer() {
     throw new Error('Common compilation failed');
   }
 
-  log('Common layer built successfully!', 'green');
+  log('Common layer completed', 'green');
 }
 
 function buildLambdaFunctions() {
-  log('\n=== Building Lambda Functions ===', 'green');
+  log('\nBuilding Lambda functions', 'green');
 
   const lambdas = [
     'payment-webhook-handler',
@@ -174,33 +241,55 @@ function buildLambdaFunctions() {
     // Compile TypeScript
     execCommand(`npx tsc -p ${lambda}/tsconfig.json`, ROOT_DIR);
 
-    log(`${lambda} built successfully!`, 'green');
+    // Transform path aliases (@/common/* -> /opt/nodejs/common/*) using sed
+    log('Transforming path aliases', 'blue');
+    execCommand(
+      `find ${distDir} -name "*.js" -type f -exec sed -i '' 's|@/common/|/opt/nodejs/common/|g' {} +`,
+      ROOT_DIR
+    );
+
+    log(`${lambda} completed`, 'green');
   }
 
-  log('\nAll Lambda functions built successfully!', 'green');
+  log('\nAll Lambda functions completed', 'green');
 }
 
 function createZipArchives() {
-  log('\n=== Creating ZIP Archives ===', 'green');
+  log('\nCreating ZIP archives', 'green');
 
   // Check if zip command is available
   try {
     execSync('which zip', { stdio: 'ignore' });
   } catch {
     log('Warning: zip command not found, skipping archive creation', 'yellow');
-    log('You can manually zip the layers and functions from the build directory', 'yellow');
     return;
   }
 
+  // Delete old ZIP files to ensure fresh creation
+  log('Removing old ZIP files', 'blue');
+  const oldZips = [
+    path.join(BUILD_DIR, 'dependencies-layer.zip'),
+    path.join(BUILD_DIR, 'common-layer.zip'),
+    path.join(BUILD_DIR, 'payment-webhook-handler.zip'),
+    path.join(BUILD_DIR, 'outbox-processor.zip'),
+    path.join(BUILD_DIR, 'outbox-cleanup.zip'),
+  ];
+  
+  oldZips.forEach(zipFile => {
+    if (fs.existsSync(zipFile)) {
+      fs.rmSync(zipFile, { force: true });
+    }
+  });
+
   // Create dependencies layer zip
-  log('Creating dependencies-layer.zip...', 'blue');
+  log('Creating dependencies-layer.zip', 'blue');
   execCommand(
     `zip -r ${path.join(BUILD_DIR, 'dependencies-layer.zip')} .`,
     DEPENDENCIES_LAYER_DIR
   );
 
   // Create common layer zip
-  log('Creating common-layer.zip...', 'blue');
+  log('Creating common-layer.zip', 'blue');
   execCommand(
     `zip -r ${path.join(BUILD_DIR, 'common-layer.zip')} .`,
     COMMON_LAYER_DIR
@@ -214,7 +303,7 @@ function createZipArchives() {
   ];
 
   for (const lambda of lambdas) {
-    log(`Creating ${lambda}.zip...`, 'blue');
+    log(`Creating ${lambda}.zip`, 'blue');
     const lambdaDistDir = path.join(ROOT_DIR, lambda, 'dist');
 
     if (fs.existsSync(lambdaDistDir)) {
@@ -227,11 +316,11 @@ function createZipArchives() {
     }
   }
 
-  log('ZIP archives created successfully!', 'green');
+  log('ZIP archives created', 'green');
 }
 
 function printLayerSizes() {
-  log('\n=== Layer Sizes ===', 'green');
+  log('\nLayer sizes', 'green');
 
   const files = [
     'dependencies-layer.zip',
@@ -254,9 +343,9 @@ function printLayerSizes() {
 // Main execution
 async function main() {
   try {
-    log('\n🚀 Starting Lambda Layers Build Process', 'green');
-    log(`Root Directory: ${ROOT_DIR}`, 'blue');
-    log(`Build Directory: ${BUILD_DIR}`, 'blue');
+    log('\nStarting Lambda build process', 'green');
+    log(`Root: ${ROOT_DIR}`, 'blue');
+    log(`Build: ${BUILD_DIR}`, 'blue');
 
     // Create build directory
     if (!fs.existsSync(BUILD_DIR)) {
@@ -270,12 +359,10 @@ async function main() {
     createZipArchives();
     printLayerSizes();
 
-    log('\n✅ Build completed successfully!', 'green');
-    log('\nOutput files are in:', 'blue');
-    log(`  ${BUILD_DIR}`, 'blue');
-    log('\nYou can now deploy these layers and functions to AWS Lambda', 'yellow');
+    log('\nBuild completed successfully', 'green');
+    log(`Output: ${BUILD_DIR}`, 'blue');
   } catch (error) {
-    log('\n❌ Build failed!', 'red');
+    log('\nBuild failed', 'red');
     log(error.message, 'red');
     process.exit(1);
   }
