@@ -12,16 +12,12 @@ NC='\033[0m'
 
 cd "$(dirname "$0")/.."
 
-# Load environment variables from .env.payment
-ENV_FILE="../../development/envs/.env.payment"
-if [ -f "$ENV_FILE" ]; then
-  set -a
-  source "$ENV_FILE"
-  set +a
-  echo -e "${GREEN}Loaded credentials from .env.payment${NC}"
-else
-  echo -e "${YELLOW}.env.payment not found, using defaults${NC}"
+# Check env files exist
+if [ ! -f "envs/env.localstack.json" ]; then
+  echo -e "${RED}envs/env.localstack.json not found${NC}"
+  exit 1
 fi
+echo -e "${GREEN}Using env files from envs/${NC}"
 
 # Check LocalStack Pro is activated
 echo -e "${YELLOW}Checking LocalStack Pro...${NC}"
@@ -73,56 +69,12 @@ COMMON_LAYER_ARN=$(awslocal lambda publish-layer-version \
 
 echo -e "${GREEN}Common: $COMMON_LAYER_ARN${NC}"
 
-# Create environment files
-echo -e "${YELLOW}Creating environment files${NC}"
 
-# Webhook handler env
-cat > env.localstack.json <<EOF
-{
-  "Variables": {
-    "NODE_ENV": "development",
-    "LOG_LEVEL": "debug",
-    "DATABASE_URL": "${DATABASE_URL:-postgresql://root:root@postgres-payment:5432/ticketbottle_payment}",
-    "KAFKA_BROKERS": "${KAFKA_BROKERS:-kafka:29092}",
-    "KAFKA_SSL": "${KAFKA_SSL:-false}",
-    "ZALOPAY_APP_ID": "${ZALOPAY_APP_ID:-test_app_id_123}",
-    "ZALOPAY_KEY1": "${ZALOPAY_KEY1:-test_key1_abc}",
-    "ZALOPAY_KEY2": "${ZALOPAY_KEY2:-test_key2_xyz}",
-    "PAYOS_CLIENT_ID": "${PAYOS_CLIENT_ID:-test_payos_client}",
-    "PAYOS_API_KEY": "${PAYOS_API_KEY:-test_payos_key}",
-    "PAYOS_CHECKSUM_KEY": "${PAYOS_CHECKSUM_KEY:-test_payos_checksum}"
-  }
-}
-EOF
-
-# Outbox processor env
-cat > env.outbox-processor.json <<EOF
-{
-  "Variables": {
-    "NODE_ENV": "development",
-    "LOG_LEVEL": "debug",
-    "DATABASE_URL": "${DATABASE_URL:-postgresql://root:root@postgres-payment:5432/ticketbottle_payment}",
-    "KAFKA_BROKERS": "${KAFKA_BROKERS:-kafka:29092}",
-    "KAFKA_SSL": "${KAFKA_SSL:-false}",
-    "OUTBOX_BATCH_SIZE": "50",
-    "OUTBOX_MAX_RETRIES": "3"
-  }
-}
-EOF
-
-# Outbox cleanup env
-cat > env.outbox-cleanup.json <<EOF
-{
-  "Variables": {
-    "NODE_ENV": "development",
-    "LOG_LEVEL": "debug",
-    "DATABASE_URL": "${DATABASE_URL:-postgresql://root:root@postgres-payment:5432/ticketbottle_payment}",
-    "OUTBOX_RETENTION_DAYS": "7"
-  }
-}
-EOF
-
-echo -e "${GREEN}Environment files created${NC}"
+# Delete existing Lambda functions (if any)
+echo -e "${YELLOW}Removing existing Lambda functions${NC}"
+awslocal lambda delete-function --function-name payment-webhook-handler 2>/dev/null || true
+awslocal lambda delete-function --function-name outbox-processor 2>/dev/null || true
+awslocal lambda delete-function --function-name outbox-cleanup 2>/dev/null || true
 
 # Create Lambda functions
 echo -e "${YELLOW}Creating Lambda functions${NC}"
@@ -137,11 +89,11 @@ awslocal lambda create-function \
   --memory-size 512 \
   --zip-file fileb://build/payment-webhook-handler.zip \
   --layers $DEPENDENCIES_LAYER_ARN $COMMON_LAYER_ARN \
-  --environment file://env.localstack.json >/dev/null 2>&1
+  --environment file://envs/env.localstack.json >/dev/null 2>&1
 
 echo -e "${GREEN}payment-webhook-handler created${NC}"
 
-# Outbox processor
+# Outbox processor (uses same env as webhook handler for simplicity in dev)
 awslocal lambda create-function \
   --function-name outbox-processor \
   --runtime nodejs20.x \
@@ -151,11 +103,11 @@ awslocal lambda create-function \
   --memory-size 512 \
   --zip-file fileb://build/outbox-processor.zip \
   --layers $DEPENDENCIES_LAYER_ARN $COMMON_LAYER_ARN \
-  --environment file://env.outbox-processor.json >/dev/null 2>&1
+  --environment file://envs/env.localstack.json >/dev/null 2>&1
 
 echo -e "${GREEN}outbox-processor created${NC}"
 
-# Outbox cleanup
+# Outbox cleanup (uses same env as webhook handler for simplicity in dev)
 awslocal lambda create-function \
   --function-name outbox-cleanup \
   --runtime nodejs20.x \
@@ -165,59 +117,82 @@ awslocal lambda create-function \
   --memory-size 256 \
   --zip-file fileb://build/outbox-cleanup.zip \
   --layers $DEPENDENCIES_LAYER_ARN $COMMON_LAYER_ARN \
-  --environment file://env.outbox-cleanup.json >/dev/null 2>&1
+  --environment file://envs/env.localstack.json >/dev/null 2>&1
 
 echo -e "${GREEN}outbox-cleanup created${NC}"
 
-# Setup API Gateway
+# Setup API Gateway (reuse existing if found)
 echo -e "${YELLOW}Setting up API Gateway${NC}"
 
-API_ID=$(awslocal apigateway create-rest-api \
-  --name ticketbottle-webhooks \
-  --description "Payment webhook endpoints" \
-  --query 'id' \
-  --output text)
+API_ID=$(awslocal apigateway get-rest-apis \
+  --query 'items[?name==`ticketbottle-webhooks`].id | [0]' \
+  --output text 2>/dev/null)
 
-ROOT_RESOURCE_ID=$(awslocal apigateway get-resources \
-  --rest-api-id $API_ID \
-  --query 'items[0].id' \
-  --output text)
+if [ -n "$API_ID" ] && [ "$API_ID" != "None" ]; then
+  echo -e "${GREEN}Reusing existing API Gateway: $API_ID${NC}"
+else
+  echo -e "${YELLOW}Creating new API Gateway${NC}"
+  API_ID=$(awslocal apigateway create-rest-api \
+    --name ticketbottle-webhooks \
+    --description "Payment webhook endpoints" \
+    --query 'id' \
+    --output text)
 
-WEBHOOK_RESOURCE_ID=$(awslocal apigateway create-resource \
-  --rest-api-id $API_ID \
-  --parent-id $ROOT_RESOURCE_ID \
-  --path-part webhook \
-  --query 'id' \
-  --output text)
+  ROOT_RESOURCE_ID=$(awslocal apigateway get-resources \
+    --rest-api-id $API_ID \
+    --query 'items[0].id' \
+    --output text)
 
-ZALOPAY_RESOURCE_ID=$(awslocal apigateway create-resource \
-  --rest-api-id $API_ID \
-  --parent-id $WEBHOOK_RESOURCE_ID \
-  --path-part zalopay \
-  --query 'id' \
-  --output text)
+  WEBHOOK_RESOURCE_ID=$(awslocal apigateway create-resource \
+    --rest-api-id $API_ID \
+    --parent-id $ROOT_RESOURCE_ID \
+    --path-part webhook \
+    --query 'id' \
+    --output text)
 
-awslocal apigateway put-method \
-  --rest-api-id $API_ID \
-  --resource-id $ZALOPAY_RESOURCE_ID \
-  --http-method POST \
-  --authorization-type NONE >/dev/null
+  ZALOPAY_RESOURCE_ID=$(awslocal apigateway create-resource \
+    --rest-api-id $API_ID \
+    --parent-id $WEBHOOK_RESOURCE_ID \
+    --path-part zalopay \
+    --query 'id' \
+    --output text)
 
-awslocal apigateway put-integration \
-  --rest-api-id $API_ID \
-  --resource-id $ZALOPAY_RESOURCE_ID \
-  --http-method POST \
-  --type AWS_PROXY \
-  --integration-http-method POST \
-  --uri "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-1:000000000000:function:payment-webhook-handler/invocations" >/dev/null
+  awslocal apigateway put-method \
+    --rest-api-id $API_ID \
+    --resource-id $ZALOPAY_RESOURCE_ID \
+    --http-method POST \
+    --authorization-type NONE >/dev/null
 
-awslocal apigateway create-deployment \
-  --rest-api-id $API_ID \
-  --stage-name dev >/dev/null
+  # Get the region from awslocal
+  AWS_REGION=$(awslocal configure get region 2>/dev/null || echo "ap-southeast-1")
+  
+  awslocal apigateway put-integration \
+    --rest-api-id $API_ID \
+    --resource-id $ZALOPAY_RESOURCE_ID \
+    --http-method POST \
+    --type AWS_PROXY \
+    --integration-http-method POST \
+    --uri "arn:aws:apigateway:${AWS_REGION}:lambda:path/2015-03-31/functions/arn:aws:lambda:${AWS_REGION}:000000000000:function:payment-webhook-handler/invocations" >/dev/null
+
+  awslocal apigateway create-deployment \
+    --rest-api-id $API_ID \
+    --stage-name dev >/dev/null
+fi
 
 API_ENDPOINT="http://localhost:4566/restapis/$API_ID/dev/_user_request_"
 
-echo -e "${GREEN}API Gateway created${NC}"
+echo -e "${GREEN}API Gateway ready${NC}"
+
+# Update API_ID in WEBHOOK_BASE_URL
+echo -e "${YELLOW}Updating WEBHOOK_BASE_URL with API_ID: $API_ID${NC}"
+sed "s|/restapis/[^/]*/dev|/restapis/${API_ID}/dev|g" envs/env.localstack.json > envs/env.localstack.json.tmp && mv envs/env.localstack.json.tmp envs/env.localstack.json
+
+# Update Lambda environment
+awslocal lambda update-function-configuration \
+  --function-name payment-webhook-handler \
+  --environment file://envs/env.localstack.json >/dev/null 2>&1 || true
+
+echo -e "${GREEN}WEBHOOK_BASE_URL updated${NC}"
 
 echo -e "\n${GREEN}Deployment complete${NC}\n"
 echo -e "${YELLOW}Webhook:${NC} $API_ENDPOINT/webhook/zalopay"

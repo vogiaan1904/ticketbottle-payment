@@ -10,12 +10,14 @@ import { EventBridgeEvent } from 'aws-lambda';
 const getTopicForEventType = (eventType: EventType): string => {
   switch (eventType) {
     case EventType.PAYMENT_COMPLETED:
+      return KAFKA_TOPICS.PAYMENT_COMPLETED;
     case EventType.PAYMENT_FAILED:
+      return KAFKA_TOPICS.PAYMENT_FAILED;
     case EventType.PAYMENT_CANCELLED:
-      return KAFKA_TOPICS.PAYMENT_EVENTS;
+      return KAFKA_TOPICS.PAYMENT_CANCELLED;
     default:
       logger.warn('Unknown event type, using default topic', { eventType });
-      return KAFKA_TOPICS.PAYMENT_EVENTS;
+      return KAFKA_TOPICS.PAYMENT_FAILED;
   }
 };
 

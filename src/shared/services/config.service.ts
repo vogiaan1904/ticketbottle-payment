@@ -215,6 +215,7 @@ export class AppConfigService {
       corsOrigins: this.get('CORS_ORIGINS'),
       logLevel: this.get('LOG_LEVEL'),
       encryptKey: this.get('ENCRYPT_KEY'),
+      webhookBaseUrl: this.get('WEBHOOK_BASE_URL'),
     };
   }
 }

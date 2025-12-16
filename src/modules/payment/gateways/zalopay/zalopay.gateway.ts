@@ -27,7 +27,7 @@ export class ZalopayGateWay implements PaymentGatewayInterface {
   private readonly key1: string;
   private readonly key2: string;
   private readonly callbackErrorCode = -1;
-  private readonly host: string;
+  private readonly webhookBaseUrl: string;
 
   constructor(
     private readonly httpService: HttpService,
@@ -36,7 +36,7 @@ export class ZalopayGateWay implements PaymentGatewayInterface {
     this.appID = this.configService.zalopayConfig.appID;
     this.key1 = this.configService.zalopayConfig.key1;
     this.key2 = this.configService.zalopayConfig.key2;
-    this.host = this.configService.appConfig.host;
+    this.webhookBaseUrl = this.configService.appConfig.webhookBaseUrl;
   }
 
   private buildZaloPayAppTransId(orderCode: string): string {
@@ -70,7 +70,9 @@ export class ZalopayGateWay implements PaymentGatewayInterface {
       redirectUrl += `?bookingCode=${data.orderCode}`;
     }
 
-    const callbackUrl = 'https://' + this.host + '/webhook/zalopay';
+    const callbackUrl = this.webhookBaseUrl
+      ? `${this.webhookBaseUrl}/webhook/zalopay`
+      : 'https://api.ticketbottle.com/webhook/zalopay';
 
     const body: ZaloCreatePaymentUrlRequestBody = {
       app_id: this.appID * 1,
